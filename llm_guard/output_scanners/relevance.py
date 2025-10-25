@@ -155,7 +155,7 @@ class Relevance(Scanner):
 
         prompt_embedding = self._encode(prompt)
         output_embedding = self._encode(output)
-        similarity = prompt_embedding.dot(output_embedding.T)
+        similarity = prompt_embedding.dot(output_embedding.T).item()
 
         if similarity < self._threshold:
             LOGGER.warning("Result is not similar to the prompt", similarity_score=similarity)
