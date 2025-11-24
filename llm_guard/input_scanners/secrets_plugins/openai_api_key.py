@@ -18,6 +18,6 @@ class OpenAIApiKeyDetector(RegexBasedDetector):
     def denylist(self) -> list[re.Pattern]:
         return [
             re.compile(
-                r"""(?i)\b(sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})(?:['|\"|\n|\r|\s|\x60|;]|$)"""
+                r"""\b(?:sk-proj-[A-Za-z0-9_-]{20,200}|sk-[A-Za-z0-9_-]{20,200}|sv-[A-Za-z0-9_-]{20,200})\b"""
             )
         ]
