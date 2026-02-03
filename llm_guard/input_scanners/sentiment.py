@@ -25,7 +25,13 @@ class Sentiment(Scanner):
         """
 
         nltk = lazy_load_dep("nltk")
-        nltk.download(lexicon)
+        try:
+            nltk.data.find("sentiment/vader_lexicon")
+        except LookupError as e:
+            raise RuntimeError(
+                "NLTK vader_lexicon not found. "
+                "Install it offline at build time (nltk.download('vader_lexicon'))."
+            ) from e
 
         sentiment = lazy_load_dep("nltk.sentiment", "nltk")
         self._sentiment_analyzer = sentiment.SentimentIntensityAnalyzer()
