@@ -153,9 +153,12 @@ def split_text_by_sentences(text: str) -> list[str]:
     nltk = lazy_load_dep("nltk")
 
     try:
-        nltk.data.find("tokenizers/punkt_tab")
-    except LookupError:
-        nltk.download("punkt_tab")
+        nltk.data.find("tokenizers/punkt")
+    except LookupError as e:
+        raise RuntimeError(
+            "NLTK punkt tokenizer not found. "
+            "Install it offline at build time (nltk.download('punkt'))."
+        ) from e
 
     return nltk.sent_tokenize(text.strip())
 
