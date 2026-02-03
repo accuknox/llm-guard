@@ -71,8 +71,10 @@ class BanCompetitors(Scanner):
         )
 
         transformers = lazy_load_dep("transformers")
+        pipeline_kwargs = model.pipeline_kwargs or {}
+        pipeline_kwargs.setdefault("local_files_only", True)
         self._ner_pipeline = transformers.pipeline(
-            "ner", model=tf_model, tokenizer=tf_tokenizer, **model.pipeline_kwargs
+            "ner", model=tf_model, tokenizer=tf_tokenizer, **pipeline_kwargs
         )
 
     def scan(self, prompt: str) -> tuple[str, bool, float]:

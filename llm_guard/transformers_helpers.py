@@ -19,9 +19,14 @@ def get_tokenizer(model: Model):
     Args:
         model (Model): The model to load the tokenizer for.
     """
-    transformers = lazy_load_dep("transformers")
+    tokenizer_kwargs = model.tokenizer_kwargs or {}
+    tokenizer_kwargs.setdefault("local_files_only", True)
+    tokenizer_kwargs.setdefault("use_fast", False)
+
     tokenizer = transformers.AutoTokenizer.from_pretrained(
-        model.path, revision=model.revision, **model.tokenizer_kwargs
+        model.path,
+        revision=model.revision,
+        **tokenizer_kwargs,
     )
     return tokenizer
 
@@ -51,6 +56,10 @@ def _ort_model_for_sequence_classification(
 
     onnxruntime = lazy_load_dep("optimum.onnxruntime", package_name)
 
+    kwargs = model.kwargs or {}
+    kwargs.setdefault("local_files_only", True)
+    kwargs.setdefault("use_fast", False)
+
     tf_model = onnxruntime.ORTModelForSequenceClassification.from_pretrained(
         model.onnx_path or model.path,
         export=model.onnx_path is None,
@@ -58,7 +67,7 @@ def _ort_model_for_sequence_classification(
         subfolder=model.onnx_subfolder,
         revision=model.onnx_revision,
         provider=provider,
-        **model.kwargs,
+        **kwargs,
     )
     LOGGER.debug("Initialized classification ONNX model", model=model, device=device())
 
@@ -85,11 +94,14 @@ def get_tokenizer_and_model_for_classification(
         use_onnx = False
 
     if use_onnx is False:
+        kwargs = model.kwargs or {}
+        kwargs.setdefault("local_files_only", True)
+        kwargs.setdefault("use_fast", False)
         tf_model = transformers.AutoModelForSequenceClassification.from_pretrained(
             model.path,
             subfolder=model.subfolder,
             revision=model.revision,
-            **model.kwargs,
+            **kwargs,
         )
         LOGGER.debug("Initialized classification model", model=model, device=device())
 
@@ -120,11 +132,14 @@ def get_tokenizer_and_model_for_ner(
         use_onnx = False
 
     if use_onnx is False:
+        kwargs = model.kwargs or {}
+        kwargs.setdefault("local_files_only", True)
+        kwargs.setdefault("use_fast", False)
         tf_model = transformers.AutoModelForTokenClassification.from_pretrained(
             model.path,
             subfolder=model.subfolder,
             revision=model.revision,
-            **model.kwargs,
+            **kwargs,
         )
         LOGGER.debug("Initialized NER model", model=model, device=device())
 
@@ -134,7 +149,9 @@ def get_tokenizer_and_model_for_ner(
         "optimum.onnxruntime",
         ("optimum[onnxruntime]" if device().type != "cuda" else "optimum[onnxruntime-gpu]"),
     )
-
+    kwargs = model.kwargs or {}
+    kwargs.setdefault("local_files_only", True)
+    kwargs.setdefault("use_fast", False)
     tf_model = optimum_onnxruntime.ORTModelForTokenClassification.from_pretrained(
         model.onnx_path,
         export=False,
@@ -142,7 +159,7 @@ def get_tokenizer_and_model_for_ner(
         provider=("CUDAExecutionProvider" if device().type == "cuda" else "CPUExecutionProvider"),
         revision=model.onnx_revision,
         file_name=model.onnx_filename,
-        **model.kwargs,
+        **kwargs,
     )
     LOGGER.debug("Initialized NER ONNX model", model=model, device=device())
 
@@ -159,10 +176,14 @@ def pipeline(
     **kwargs,
 ):
     if task not in get_args(ClassificationTask):
-        raise LLMGuardValidationError(f"Invalid task. Must be one of {ClassificationTask}")
+        raise LLMGuardValidationError(
+            f"Invalid task. Must be one of {ClassificationTask}"
+        )
 
     if kwargs.get("max_length", None) is None:
         kwargs["max_length"] = tokenizer.model_max_length
+
+    kwargs.setdefault("local_files_only", True)
 
     transformers = lazy_load_dep("transformers")
     return transformers.pipeline(
