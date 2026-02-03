@@ -112,10 +112,10 @@ def device():
 
 
 def lazy_load_dep(import_name: str, package_name: str | None = None):
-    """Helper function to lazily load optional dependencies. If the dependency is not
-    present, the function will raise an error _when used_.
+    """Helper function to lazily load optional dependencies.
 
-    NOTE: This wrapper adds a warning message at import time.
+    Ensures the imported module is also available as a global symbol,
+    since many scanners reference it directly (e.g. `transformers.pipeline`).
     """
 
     if package_name is None:
@@ -128,7 +128,12 @@ def lazy_load_dep(import_name: str, package_name: str | None = None):
             f"Use `pip install {package_name}` to install the package if running locally."
         )
 
-    return importlib.import_module(import_name)
+    module = importlib.import_module(import_name)
+
+    globals()[import_name.split(".")[0]] = module
+
+    return module
+
 
 
 def calculate_risk_score(score: float, threshold: float) -> float:
