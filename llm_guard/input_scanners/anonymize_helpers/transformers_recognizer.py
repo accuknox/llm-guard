@@ -139,7 +139,7 @@ class TransformersRecognizer(EntityRecognizer):
         self.model.pipeline_kwargs["ignore_labels"] = self.ignore_labels
 
         transformers = cast("transformers", lazy_load_dep("transformers"))
-        pipeline_kwargs = model.pipeline_kwargs or {}
+        pipeline_kwargs = self.model.pipeline_kwargs or {}
         pipeline_kwargs.setdefault("local_files_only", True)
         self.pipeline = transformers.pipelines.pipeline(
             "ner",
