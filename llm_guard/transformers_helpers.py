@@ -22,7 +22,7 @@ def get_tokenizer(model: Model):
     tokenizer_kwargs = model.tokenizer_kwargs or {}
     tokenizer_kwargs.setdefault("local_files_only", True)
     tokenizer_kwargs.setdefault("use_fast", False)
-
+    transformers = lazy_load_dep("transformers")
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model.path,
         revision=model.revision,
