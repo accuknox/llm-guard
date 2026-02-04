@@ -26,7 +26,7 @@ class Sentiment(Scanner):
 
         nltk = lazy_load_dep("nltk")
         try:
-            nltk.data.find("sentiment/vader_lexicon")
+            nltk.data.find("sentiment/vader_lexicon.zip")
         except LookupError as e:
             raise RuntimeError(
                 "NLTK vader_lexicon not found. "
