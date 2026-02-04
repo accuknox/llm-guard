@@ -21,7 +21,6 @@ def get_tokenizer(model: Model):
     """
     tokenizer_kwargs = model.tokenizer_kwargs or {}
     tokenizer_kwargs.setdefault("local_files_only", True)
-    tokenizer_kwargs.setdefault("use_fast", False)
     transformers = lazy_load_dep("transformers")
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model.path,
@@ -58,7 +57,6 @@ def _ort_model_for_sequence_classification(
 
     kwargs = model.kwargs or {}
     kwargs.setdefault("local_files_only", True)
-    kwargs.setdefault("use_fast", False)
 
     tf_model = onnxruntime.ORTModelForSequenceClassification.from_pretrained(
         model.onnx_path or model.path,
@@ -96,7 +94,6 @@ def get_tokenizer_and_model_for_classification(
     if use_onnx is False:
         kwargs = model.kwargs or {}
         kwargs.setdefault("local_files_only", True)
-        kwargs.setdefault("use_fast", False)
         tf_model = transformers.AutoModelForSequenceClassification.from_pretrained(
             model.path,
             subfolder=model.subfolder,
@@ -134,7 +131,6 @@ def get_tokenizer_and_model_for_ner(
     if use_onnx is False:
         kwargs = model.kwargs or {}
         kwargs.setdefault("local_files_only", True)
-        kwargs.setdefault("use_fast", False)
         tf_model = transformers.AutoModelForTokenClassification.from_pretrained(
             model.path,
             subfolder=model.subfolder,
@@ -151,7 +147,6 @@ def get_tokenizer_and_model_for_ner(
     )
     kwargs = model.kwargs or {}
     kwargs.setdefault("local_files_only", True)
-    kwargs.setdefault("use_fast", False)
     tf_model = optimum_onnxruntime.ORTModelForTokenClassification.from_pretrained(
         model.onnx_path,
         export=False,
