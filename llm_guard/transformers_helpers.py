@@ -56,7 +56,7 @@ def _ort_model_for_sequence_classification(
     onnxruntime = lazy_load_dep("optimum.onnxruntime", package_name)
 
     kwargs = model.kwargs or {}
-    kwargs.setdefault("local_files_only", True)
+    # kwargs.setdefault("local_files_only", True)
 
     tf_model = onnxruntime.ORTModelForSequenceClassification.from_pretrained(
         model.onnx_path or model.path,
@@ -146,7 +146,7 @@ def get_tokenizer_and_model_for_ner(
         ("optimum[onnxruntime]" if device().type != "cuda" else "optimum[onnxruntime-gpu]"),
     )
     kwargs = model.kwargs or {}
-    kwargs.setdefault("local_files_only", True)
+    # kwargs.setdefault("local_files_only", True)
     tf_model = optimum_onnxruntime.ORTModelForTokenClassification.from_pretrained(
         model.onnx_path,
         export=False,
