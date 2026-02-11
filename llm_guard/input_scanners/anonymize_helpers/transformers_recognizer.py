@@ -140,7 +140,7 @@ class TransformersRecognizer(EntityRecognizer):
 
         transformers = cast("transformers", lazy_load_dep("transformers"))
         pipeline_kwargs = self.model.pipeline_kwargs or {}
-        # pipeline_kwargs.setdefault("local_files_only", True)
+        pipeline_kwargs.setdefault("local_files_only", True)
         self.pipeline = transformers.pipelines.pipeline(
             "ner",
             model=tf_model,

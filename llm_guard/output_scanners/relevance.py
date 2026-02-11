@@ -105,11 +105,13 @@ class Relevance(Scanner):
             LOGGER.debug("Initialized ONNX model", model=model, device=device())
         else:
             transformers = lazy_load_dep("transformers")
+            kwargs = model.kwargs or {}
+            kwargs.setdefault("local_files_only", True)
             self._model = transformers.AutoModel.from_pretrained(
                 model.path,
                 subfolder=model.subfolder,
                 revision=model.revision,
-                **model.kwargs,
+                **kwargs,
             ).to(device())
             LOGGER.debug("Initialized model", model=model, device=device())
             self._model.eval()
