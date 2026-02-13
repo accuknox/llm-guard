@@ -31,8 +31,6 @@ injection attacks, LLM-Guard ensures that your interactions with LLMs remain saf
 
 It is designed for **production AI systems**, not just experiments.
 
----
-
 ## Why LLM Security Matters
 
 Traditional application security tools are not designed for AI systems.
@@ -44,8 +42,6 @@ LLMs:
 - Can be manipulated to bypass policies at runtime
 
 Without guardrails, LLM-powered systems introduce **new attack surfaces** that conventional security controls cannot detect or block.
-
----
 
 ## LLM Threat Model
 
@@ -61,8 +57,6 @@ LLM Guard is built around real-world LLM security threats, including:
 
 These risks exist even when models are hosted by trusted providers.
 
----
-
 ## How LLM Guard Works
 
 LLM Guard enforces security using layered guardrails:
@@ -77,8 +71,6 @@ LLM Guard enforces security using layered guardrails:
 - **Runtime Guardrails**  
   Enforce security policies during execution, including tool calls and agent workflows.
 
----
-
 ## Security Controls Covered
 
 | Control Type        | AI Layer     | Threats Mitigated                         |
@@ -87,8 +79,6 @@ LLM Guard enforces security using layered guardrails:
 | Output Filtering   | Response    | Data leakage, unsafe outputs               |
 | Runtime Policies   | Execution   | Unauthorized actions, agent misuse         |
 | Governance Rules   | System      | Compliance and policy violations           |
-
----
 
 ## Supported Use Cases
 
