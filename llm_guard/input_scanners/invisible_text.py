@@ -24,13 +24,18 @@ class InvisibleText(Scanner):
     def contains_unicode(text: str) -> bool:
         return any(ord(char) > 127 for char in text)
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self, prompt: str, banned_categories: list[str] | None = None
+    ) -> tuple[str, bool, float]:
         if not self.contains_unicode(prompt):
             return prompt, True, -1.0
 
+        if banned_categories is None:
+            banned_categories = self._banned_categories
+
         chars = []
         for char in prompt:
-            if unicodedata.category(char) not in self._banned_categories:
+            if unicodedata.category(char) not in banned_categories:
                 continue
 
             chars.append(char)

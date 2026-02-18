@@ -93,11 +93,22 @@ class Toxicity(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        inputs = self._match_type.get_inputs(prompt)
+        if threshold is None:
+            threshold = self._threshold
+
+        if match_type is None:
+            match_type = self._match_type
+
+        inputs = match_type.get_inputs(prompt)
 
         highest_toxicity_score = 0.0
         toxicity_above_threshold = []
@@ -107,7 +118,7 @@ class Toxicity(Scanner):
                 if result["label"] not in _toxic_labels:
                     continue
 
-                if result["score"] > self._threshold:
+                if result["score"] > threshold:
                     toxicity_above_threshold.append(result)
 
                 if result["score"] > highest_toxicity_score:
@@ -119,7 +130,7 @@ class Toxicity(Scanner):
             return (
                 prompt,
                 False,
-                calculate_risk_score(highest_toxicity_score, self._threshold),
+                calculate_risk_score(highest_toxicity_score, threshold),
             )
 
         LOGGER.debug("Not toxicity found in the text", results=results_all)
@@ -127,5 +138,5 @@ class Toxicity(Scanner):
         return (
             prompt,
             True,
-            calculate_risk_score(highest_toxicity_score, self._threshold),
+            calculate_risk_score(highest_toxicity_score, threshold),
         )

@@ -72,17 +72,38 @@ class Regex(Scanner):
         self._is_blocked = is_blocked
         self._redact = redact
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        patterns: list[str] | None = None,
+        is_blocked: bool | None = None,
+        match_type: MatchType | None = None,
+        redact: bool | None = None,
+    ) -> tuple[str, bool, float]:
+        if patterns is None:
+            regex_patterns = self._patterns
+        else:
+            regex_patterns = [re.compile(p) for p in patterns]
+
+        if is_blocked is None:
+            is_blocked = self._is_blocked
+
+        if match_type is None:
+            match_type = self._match_type
+
+        if redact is None:
+            redact = self._redact
+
         text_replace_builder = TextReplaceBuilder(original_text=prompt)
-        for pattern in self._patterns:
-            matches = self._match_type.match(pattern, prompt)
+        for pattern in regex_patterns:
+            matches = match_type.match(pattern, prompt)
             if matches is None or len(matches) == 0:
                 continue
 
-            if self._is_blocked:
+            if is_blocked:
                 LOGGER.warning("Pattern was detected in the text", pattern=pattern)
 
-                if self._redact:
+                if redact:
                     for match in matches:
                         text_replace_builder.replace_text_get_insertion_index(
                             "[REDACTED]",
@@ -95,7 +116,7 @@ class Regex(Scanner):
             LOGGER.debug("Pattern matched the text", pattern=pattern)
             return text_replace_builder.output_text, True, -1.0
 
-        if self._is_blocked:
+        if is_blocked:
             LOGGER.debug("None of the patterns were found in the text")
             return text_replace_builder.output_text, True, -1.0
 
