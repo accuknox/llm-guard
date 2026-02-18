@@ -43,5 +43,21 @@ class BanCompetitors(Scanner):
             use_onnx=use_onnx,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        competitors: list[str] | None = None,
+        threshold: float | None = None,
+        redact: bool | None = None,
+        chunk_size: int | None = None,
+        chunk_overlap_size: int | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(
+            output,
+            competitors=competitors,
+            threshold=threshold,
+            redact=redact,
+            chunk_size=chunk_size,
+            chunk_overlap_size=chunk_overlap_size,
+        )

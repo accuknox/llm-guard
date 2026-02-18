@@ -69,9 +69,12 @@ class MaliciousURLs(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, output: str, threshold: float | None = None) -> tuple[str, bool, float]:
         if output.strip() == "":
             return output, True, -1.0
+
+        if threshold is None:
+            threshold = self._threshold
 
         urls = extract_urls(output)
         if len(urls) == 0:
@@ -86,7 +89,7 @@ class MaliciousURLs(Scanner):
                 item["score"] for item in result if item["label"] in _malicious_labels
             ]
             highest_malicious_score = max(malicious_scores)
-            if highest_malicious_score > self._threshold:
+            if highest_malicious_score > threshold:
                 LOGGER.warning(
                     "Detected malware URL",
                     url=url,
@@ -96,7 +99,7 @@ class MaliciousURLs(Scanner):
                 return (
                     output,
                     False,
-                    calculate_risk_score(highest_malicious_score, self._threshold),
+                    calculate_risk_score(highest_malicious_score, threshold),
                 )
 
         LOGGER.debug(
@@ -108,5 +111,5 @@ class MaliciousURLs(Scanner):
         return (
             output,
             True,
-            calculate_risk_score(highest_malicious_score, self._threshold),
+            calculate_risk_score(highest_malicious_score, threshold),
         )

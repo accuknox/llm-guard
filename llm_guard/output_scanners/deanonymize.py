@@ -142,11 +142,19 @@ class Deanonymize(Scanner):
         self._vault = vault
         self._matching_strategy = matching_strategy
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        matching_strategy: MatchingStrategy | None = None,
+    ) -> tuple[str, bool, float]:
+        if matching_strategy is None:
+            matching_strategy = self._matching_strategy
+
         vault_items = self._vault.get()
         if len(vault_items) == 0:
             LOGGER.warning("No items found in the Vault")
 
-        output = self._matching_strategy.match(output, vault_items)
+        output = matching_strategy.match(output, vault_items)
 
         return output, True, -1.0

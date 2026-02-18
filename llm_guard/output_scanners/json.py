@@ -69,9 +69,20 @@ class JSON(Scanner):
 
         return repaired_json
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        required_elements: int | None = None,
+        repair: bool | None = None,
+    ) -> tuple[str, bool, float]:
         if output.strip() == "":
             return output, True, -1.0
+
+        if required_elements is None:
+            required_elements = self._required_elements
+        if repair is None:
+            repair = self._repair
 
         # Find JSON object and array candidates using regular expressions
         json_candidates = self._pattern.findall(output)
@@ -83,7 +94,7 @@ class JSON(Scanner):
                 valid_jsons.append(json_candidate)
                 continue
 
-            if self._repair:
+            if repair:
                 LOGGER.warning(
                     "Found invalid JSON. Trying to repair it...",
                     json_candidate=json_candidate,
@@ -102,10 +113,10 @@ class JSON(Scanner):
                 output = output.replace(json_candidate, repaired_json)
 
         # Check if there are enough valid JSONs
-        if len(valid_jsons) < self._required_elements:
+        if len(valid_jsons) < required_elements:
             LOGGER.warning(
                 "Not all required JSON elements are found",
-                num_required_elements=self._required_elements,
+                num_required_elements=required_elements,
                 num_found=len(valid_jsons),
             )
             return output, False, 1.0

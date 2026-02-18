@@ -22,20 +22,31 @@ class ReadingTime(Scanner):
         self._truncate = truncate
         self._words_per_minute = 200  # Average reading speed
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        max_time: float | None = None,
+        truncate: bool | None = None,
+    ) -> tuple[str, bool, float]:
+        if max_time is None:
+            max_time = self._max_time
+        if truncate is None:
+            truncate = self._truncate
+
         words = output.split()
         word_count = len(words)
         reading_time_minutes = word_count / self._words_per_minute
 
-        if reading_time_minutes > self._max_time:
+        if reading_time_minutes > max_time:
             LOGGER.warning(
                 "Output exceeded maximum reading time",
                 reading_time_minutes=reading_time_minutes,
-                max_reading_time_minutes=self._max_time,
+                max_reading_time_minutes=max_time,
             )
-            if self._truncate:
+            if truncate:
                 # Calculate the maximum number of words to fit within the time limit
-                max_words = int(self._max_time * self._words_per_minute)
+                max_words = int(max_time * self._words_per_minute)
                 output = " ".join(words[:max_words])
 
             return output, False, 1.0
