@@ -165,13 +165,27 @@ class PromptInjection(Scanner):
 
         match_type.set_tokenizer(tf_tokenizer)
         self._match_type = match_type
+        self._tokenizer = tf_tokenizer
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
+        if threshold is None:
+            threshold = self._threshold
+
+        if match_type is None:
+            match_type = self._match_type
+
+        match_type.set_tokenizer(self._tokenizer)
+
         highest_score = 0.0
-        results_all = self._pipeline(self._match_type.get_inputs(prompt))
+        results_all = self._pipeline(match_type.get_inputs(prompt))
         for result in results_all:
             injection_score = round(
                 (result["score"] if result["label"] == "INJECTION" else 1 - result["score"]),
@@ -181,15 +195,15 @@ class PromptInjection(Scanner):
             if injection_score > highest_score:
                 highest_score = injection_score
 
-            if injection_score > self._threshold:
+            if injection_score > threshold:
                 LOGGER.warning("Detected prompt injection", injection_score=injection_score)
 
                 return (
                     prompt,
                     False,
-                    calculate_risk_score(injection_score, self._threshold),
+                    calculate_risk_score(injection_score, threshold),
                 )
 
         LOGGER.debug("No prompt injection detected", highest_score=highest_score)
 
-        return prompt, True, calculate_risk_score(highest_score, self._threshold)
+        return prompt, True, calculate_risk_score(highest_score, threshold)

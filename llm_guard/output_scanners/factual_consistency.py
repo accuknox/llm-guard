@@ -53,9 +53,12 @@ class FactualConsistency(Scanner):
         if not use_onnx:
             self._model.eval()
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, output: str, minimum_score: float | None = None) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return output, True, -1.0
+
+        if minimum_score is None:
+            minimum_score = self._minimum_score
 
         tokenized_input_seq_pair = self._tokenizer(
             output, prompt, padding=True, truncation=True, return_tensors="pt"
@@ -74,13 +77,13 @@ class FactualConsistency(Scanner):
         }
 
         entailment_score = prediction["entailment"]
-        if entailment_score < self._minimum_score:
+        if entailment_score < minimum_score:
             LOGGER.warning("Entailment score is below the threshold", prediction=prediction)
 
             return (
                 output,
                 False,
-                calculate_risk_score(prediction["not_entailment"], self._minimum_score),
+                calculate_risk_score(prediction["not_entailment"], minimum_score),
             )
 
         LOGGER.debug("The output is factually consistent", prediction=prediction)
@@ -88,5 +91,5 @@ class FactualConsistency(Scanner):
         return (
             output,
             True,
-            calculate_risk_score(prediction["not_entailment"], self._minimum_score),
+            calculate_risk_score(prediction["not_entailment"], minimum_score),
         )

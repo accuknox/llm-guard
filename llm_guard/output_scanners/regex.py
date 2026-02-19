@@ -38,5 +38,19 @@ class Regex(Scanner):
             patterns, is_blocked=is_blocked, match_type=match_type, redact=redact
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        patterns: list[str] | None = None,
+        is_blocked: bool | None = None,
+        match_type: MatchType | None = None,
+        redact: bool | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(
+            output,
+            patterns=patterns,
+            is_blocked=is_blocked,
+            match_type=match_type,
+            redact=redact,
+        )

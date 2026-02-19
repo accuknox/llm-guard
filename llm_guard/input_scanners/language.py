@@ -84,20 +84,35 @@ class Language(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        valid_languages: list[str] | None = None,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        results_all = self._pipeline(self._match_type.get_inputs(prompt))
+        if valid_languages is None:
+            valid_languages = self._valid_languages
+
+        if threshold is None:
+            threshold = self._threshold
+
+        if match_type is None:
+            match_type = self._match_type
+
+        results_all = self._pipeline(match_type.get_inputs(prompt))
         for result_chunk in results_all:
             languages_above_threshold = [
-                result["label"] for result in result_chunk if result["score"] > self._threshold
+                result["label"] for result in result_chunk if result["score"] > threshold
             ]
 
             highest_score = max([result["score"] for result in result_chunk])
 
             # Check if any of the languages above threshold are not valid
-            if len(set(languages_above_threshold) - set(self._valid_languages)) > 0:
+            if len(set(languages_above_threshold) - set(valid_languages)) > 0:
                 LOGGER.warning(
                     "Languages are found with high confidence",
                     languages=languages_above_threshold,
@@ -106,7 +121,7 @@ class Language(Scanner):
                 return (
                     prompt,
                     False,
-                    calculate_risk_score(highest_score, self._threshold),
+                    calculate_risk_score(highest_score, threshold),
                 )
 
         LOGGER.debug("Only valid languages are found in the text.")

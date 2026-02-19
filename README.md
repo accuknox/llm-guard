@@ -21,6 +21,75 @@ stars](https://img.shields.io/github/stars/protectai/llm-guard.svg?style=social&
 By offering sanitization, detection of harmful language, prevention of data leakage, and resistance against prompt
 injection attacks, LLM-Guard ensures that your interactions with LLMs remain safe and secure.
 
+## Open-Source Guardrails for LLM & AI System Security
+
+**LLM Guard** helps teams protect AI systems by enforcing security controls at the most vulnerable points of LLM usage:
+
+- Before model inference (input guardrails)
+- After model inference (output guardrails)
+- During execution and tool usage (runtime guardrails)
+
+It is designed for **production AI systems**, not just experiments.
+
+## Why LLM Security Matters
+
+Traditional application security tools are not designed for AI systems.
+
+LLMs:
+- Accept **untrusted natural language input**
+- Produce **non-deterministic outputs**
+- Can leak sensitive data through responses
+- Can be manipulated to bypass policies at runtime
+
+Without guardrails, LLM-powered systems introduce **new attack surfaces** that conventional security controls cannot detect or block.
+
+## LLM Threat Model
+
+LLM Guard is built around real-world LLM security threats, including:
+
+### Common LLM Security Risks
+- **Prompt Injection** (direct and indirect)
+- **Jailbreak attacks** and role manipulation
+- **Sensitive data leakage** in responses
+- **Training data exposure**
+- **Unauthorized tool or function execution**
+- **Policy and compliance violations at inference time**
+
+These risks exist even when models are hosted by trusted providers.
+
+## How LLM Guard Works
+
+LLM Guard enforces security using layered guardrails:
+
+### Guardrail Layers
+- **Input Guardrails**  
+  Validate, sanitize, and assess prompts before they reach the model.
+
+- **Output Guardrails**  
+  Inspect model responses for sensitive data, policy violations, or unsafe content.
+
+- **Runtime Guardrails**  
+  Enforce security policies during execution, including tool calls and agent workflows.
+
+## Security Controls Covered
+
+| Control Type        | AI Layer     | Threats Mitigated                         |
+|--------------------|-------------|-------------------------------------------|
+| Input Validation   | Prompt      | Prompt injection, jailbreaks              |
+| Output Filtering   | Response    | Data leakage, unsafe outputs               |
+| Runtime Policies   | Execution   | Unauthorized actions, agent misuse         |
+| Governance Rules   | System      | Compliance and policy violations           |
+
+## Supported Use Cases
+
+LLM Guard can be used to secure:
+
+- Enterprise chatbots
+- RAG (Retrieval-Augmented Generation) pipelines
+- AI agents and autonomous workflows
+- Internal AI assistants
+- Customer-facing generative AI applications
+
 ## Installation
 
 Begin your journey with LLM Guard by downloading the package:

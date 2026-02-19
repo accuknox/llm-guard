@@ -34,7 +34,7 @@ class BanCompetitors(Scanner):
 
     def __init__(
         self,
-        competitors: Sequence[str],
+        competitors: Sequence[str] = [],
         *,
         threshold: float = 0.5,
         redact: bool = True,
@@ -77,20 +77,39 @@ class BanCompetitors(Scanner):
             "ner", model=tf_model, tokenizer=tf_tokenizer, **pipeline_kwargs
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        competitors: Sequence[str] | None = None,
+        threshold: float | None = None,
+        redact: bool | None = None,
+        chunk_size: int | None = None,
+        chunk_overlap_size: int | None = None,
+    ) -> tuple[str, bool, float]:
+        if competitors is None:
+            competitors = self._competitors
+        if threshold is None:
+            threshold = self._threshold
+        if redact is None:
+            redact = self._redact
+        if chunk_size is None:
+            chunk_size = self.chunk_length
+        if chunk_overlap_size is None:
+            chunk_overlap_size = self.text_overlap_length
+
         is_detected = False
         text_replace_builder = TextReplaceBuilder(original_text=prompt)
-        entities = self._get_ner_results_for_text(prompt)
+        entities = self._get_ner_results_for_text(prompt, chunk_size, chunk_overlap_size)
         assert isinstance(entities, list)
         entities = sorted(entities, key=lambda x: x["end"], reverse=True)
 
         for entity in entities:
             entity["word"] = entity["word"].strip()
-            if entity["word"] not in self._competitors:
+            if entity["word"] not in competitors:
                 LOGGER.debug("Entity is not a specified competitor", entity=entity["word"])
                 continue
 
-            if entity["score"] < self._threshold:
+            if entity["score"] < threshold:
                 LOGGER.debug(
                     "Competitor detected but the score is below threshold",
                     entity=entity["word"],
@@ -100,7 +119,7 @@ class BanCompetitors(Scanner):
 
             is_detected = True
 
-            if self._redact:
+            if redact:
                 text_replace_builder.replace_text_get_insertion_index(
                     "[REDACTED]",
                     entity["start"],
@@ -120,13 +139,19 @@ class BanCompetitors(Scanner):
 
         return prompt, True, -1.0
 
-    def _get_ner_results_for_text(self, text: str) -> list[dict]:
+    def _get_ner_results_for_text(
+        self, text: str, chunk_length: int, text_overlap_length: int
+    ) -> list[dict]:
         """The function runs model inference on the provided text.
         The text is split into chunks with n overlapping characters.
         The results are then aggregated and duplications are removed.
 
         :param text: The text to run inference on
         :type text: str
+        :param chunk_length: The length of each chunk
+        :type chunk_length: int
+        :param text_overlap_length: The length of overlap between chunks
+        :type text_overlap_length: int
         :return: List of entity predictions on the word level
         :rtype: List[dict]
         """
@@ -138,8 +163,8 @@ class BanCompetitors(Scanner):
         # normalize characters to token numbers approximately
         # 1 word ~ 2 tokens ~ 4 characters
         text_tokens_length = len(text.split()) * 2
-        chunk_length = self.chunk_length // 2 * 4
-        text_overlap_length = self.text_overlap_length // 2 * 4
+        chunk_length = chunk_length // 2 * 4
+        text_overlap_length = text_overlap_length // 2 * 4
         text_length = len(text)
 
         # split text into chunks

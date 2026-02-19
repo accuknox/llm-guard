@@ -1,4 +1,4 @@
-from llm_guard.input_scanners.emotion_detection import EmotionDetection as InputEmotionDetection
+from llm_guard.input_scanners.emotion_detection import EmotionDetection as InputEmotionDetection, MatchType
 
 from .base import Scanner
 
@@ -18,8 +18,20 @@ class EmotionDetection(Scanner):
         """
         self._scanner = InputEmotionDetection(**kwargs)
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        threshold: float | None = None,
+        blocked_emotions: list[str] | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(
+            output,
+            threshold=threshold,
+            blocked_emotions=blocked_emotions,
+            match_type=match_type,
+        )
 
     def get_emotion_analysis(self, output: str) -> dict[str, float]:
         """
@@ -34,7 +46,12 @@ class EmotionDetection(Scanner):
         return self._scanner.get_emotion_analysis(output)
 
     def scan_with_full_output(
-        self, prompt: str, output: str
+        self,
+        prompt: str,
+        output: str,
+        threshold: float | None = None,
+        blocked_emotions: list[str] | None = None,
+        match_type: MatchType | None = None,
     ) -> tuple[str, bool, float, dict[str, float]]:
         """
         Scan the output and return full emotion analysis along with the standard results.
@@ -42,6 +59,9 @@ class EmotionDetection(Scanner):
         Parameters:
             prompt (str): The input prompt (not used in emotion detection).
             output (str): The model output to scan.
+            threshold (float, optional): Dynamic threshold.
+            blocked_emotions (list[str], optional): Dynamic list of blocked emotions.
+            match_type (MatchType, optional): Dynamic match type.
 
         Returns:
             tuple[str, bool, float, Dict[str, float]]:
@@ -50,4 +70,9 @@ class EmotionDetection(Scanner):
                 - risk_score: The risk score
                 - emotion_analysis: Full emotion analysis with scores
         """
-        return self._scanner.scan_with_full_output(output)
+        return self._scanner.scan_with_full_output(
+            output,
+            threshold=threshold,
+            blocked_emotions=blocked_emotions,
+            match_type=match_type,
+        )

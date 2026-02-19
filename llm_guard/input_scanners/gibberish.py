@@ -80,12 +80,23 @@ class Gibberish(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
+        if threshold is None:
+            threshold = self._threshold
+
+        if match_type is None:
+            match_type = self._match_type
+
         highest_score = 0.0
-        results_all = self._classifier(self._match_type.get_inputs(prompt))
+        results_all = self._classifier(match_type.get_inputs(prompt))
         LOGGER.debug("Gibberish detection finished", results=results_all)
         for result in results_all:
             score = round(
@@ -96,19 +107,19 @@ class Gibberish(Scanner):
             if score > highest_score:
                 highest_score = score
 
-        if highest_score > self._threshold:
+        if highest_score > threshold:
             LOGGER.warning(
                 "Detected gibberish text",
                 score=highest_score,
-                threshold=self._threshold,
+                threshold=threshold,
             )
 
-            return prompt, False, calculate_risk_score(highest_score, self._threshold)
+            return prompt, False, calculate_risk_score(highest_score, threshold)
 
         LOGGER.debug(
             "No gibberish in the text",
             highest_score=highest_score,
-            threshold=self._threshold,
+            threshold=threshold,
         )
 
-        return prompt, True, calculate_risk_score(highest_score, self._threshold)
+        return prompt, True, calculate_risk_score(highest_score, threshold)

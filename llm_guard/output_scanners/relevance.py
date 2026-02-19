@@ -151,19 +151,22 @@ class Relevance(Scanner):
 
         return embeddings[0]
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, output: str, threshold: float | None = None) -> tuple[str, bool, float]:
         if output.strip() == "":
             return output, True, -1.0
+
+        if threshold is None:
+            threshold = self._threshold
 
         prompt_embedding = self._encode(prompt)
         output_embedding = self._encode(output)
         similarity = prompt_embedding.dot(output_embedding.T).item()
 
-        if similarity < self._threshold:
+        if similarity < threshold:
             LOGGER.warning("Result is not similar to the prompt", similarity_score=similarity)
 
-            return output, False, calculate_risk_score(1 - similarity, self._threshold)
+            return output, False, calculate_risk_score(1 - similarity, threshold)
 
         LOGGER.debug("Result is similar to the prompt", similarity_score=similarity)
 
-        return output, True, calculate_risk_score(1 - similarity, self._threshold)
+        return output, True, calculate_risk_score(1 - similarity, threshold)

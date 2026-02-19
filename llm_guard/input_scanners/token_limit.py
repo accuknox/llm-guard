@@ -42,32 +42,38 @@ class TokenLimit(Scanner):
         else:
             self._encoding = tiktoken.encoding_for_model(model_name)
 
-    def _split_text_on_tokens(self, text: str) -> tuple[list[str], int]:
+    def _split_text_on_tokens(self, text: str, limit: int | None = None) -> tuple[list[str], int]:
         """Split incoming text and return chunks using tokenizer."""
+        if limit is None:
+            limit = self._limit
+
         splits: list[str] = []
         input_ids = self._encoding.encode(text)
         start_idx = 0
-        cur_idx = min(start_idx + self._limit, len(input_ids))
+        cur_idx = min(start_idx + limit, len(input_ids))
         chunk_ids = input_ids[start_idx:cur_idx]
 
         while start_idx < len(input_ids):
             splits.append(self._encoding.decode(chunk_ids))
-            start_idx += self._limit
-            cur_idx = min(start_idx + self._limit, len(input_ids))
+            start_idx += limit
+            cur_idx = min(start_idx + limit, len(input_ids))
             chunk_ids = input_ids[start_idx:cur_idx]
 
         return splits, len(input_ids)
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, limit: int | None = None) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        chunks, num_tokens = self._split_text_on_tokens(text=prompt)
-        if num_tokens < self._limit:
+        if limit is None:
+            limit = self._limit
+
+        chunks, num_tokens = self._split_text_on_tokens(text=prompt, limit=limit)
+        if num_tokens < limit:
             LOGGER.debug(
                 "Prompt fits the maximum tokens",
                 num_tokens=num_tokens,
-                threshold=self._limit,
+                threshold=limit,
             )
             return prompt, True, -1.0
 
