@@ -65,5 +65,21 @@ class BanSubstrings(Scanner):
             contains_all=contains_all,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        substrings: list[str] | None = None,
+        match_type: MatchType | None = None,
+        case_sensitive: bool | None = None,
+        redact: bool | None = None,
+        contains_all: bool | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(
+            output,
+            substrings=substrings,
+            match_type=match_type,
+            case_sensitive=case_sensitive,
+            redact=redact,
+            contains_all=contains_all,
+        )

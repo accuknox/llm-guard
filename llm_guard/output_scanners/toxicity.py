@@ -38,5 +38,11 @@ class Toxicity(Scanner):
             use_onnx=use_onnx,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(output, threshold=threshold, match_type=match_type)

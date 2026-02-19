@@ -40,5 +40,17 @@ class Language(Scanner):
             use_onnx=use_onnx,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        valid_languages: list[str] | None = None,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(
+            output,
+            valid_languages=valid_languages,
+            threshold=threshold,
+            match_type=match_type,
+        )

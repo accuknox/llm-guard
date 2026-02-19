@@ -82,12 +82,23 @@ class NoRefusal(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
         if output.strip() == "":
             return output, True, -1.0
 
+        if threshold is None:
+            threshold = self._threshold
+        if match_type is None:
+            match_type = self._match_type
+
         highest_score = 0.0
-        results_all = self._pipeline(self._match_type.get_inputs(output))
+        results_all = self._pipeline(match_type.get_inputs(output))
         for result in results_all:
             score = round(
                 (result["score"] if result["label"] == "REJECTION" else 1 - result["score"]),
@@ -97,14 +108,14 @@ class NoRefusal(Scanner):
             if score > highest_score:
                 highest_score = score
 
-            if score > self._threshold:
+            if score > threshold:
                 LOGGER.warning("Detected rejection", highest_score=score)
 
-                return output, False, calculate_risk_score(score, self._threshold)
+                return output, False, calculate_risk_score(score, threshold)
 
         LOGGER.debug("No rejection detected", highest_score=highest_score)
 
-        return output, True, calculate_risk_score(highest_score, self._threshold)
+        return output, True, calculate_risk_score(highest_score, threshold)
 
 
 class NoRefusalLight(BanSubstrings):

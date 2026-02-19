@@ -77,12 +77,23 @@ class Bias(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
         if output.strip() == "":
             return output, True, -1.0
 
+        if threshold is None:
+            threshold = self._threshold
+        if match_type is None:
+            match_type = self._match_type
+
         highest_score = 0.0
-        results_all = self._classifier(self._match_type.get_inputs(prompt + "\n" + output))
+        results_all = self._classifier(match_type.get_inputs(prompt + "\n" + output))
         for result in results_all:
             score = round(
                 result["score"] if result["label"] == "BIASED" else 1 - result["score"],
@@ -92,15 +103,15 @@ class Bias(Scanner):
             if score > highest_score:
                 highest_score = score
 
-            if score > self._threshold:
+            if score > threshold:
                 LOGGER.warning(
                     "Detected biased text",
                     highest_score=score,
-                    threshold=self._threshold,
+                    threshold=threshold,
                 )
 
-                return output, False, calculate_risk_score(score, self._threshold)
+                return output, False, calculate_risk_score(score, threshold)
 
-        LOGGER.debug("Not biased result", highest_score=highest_score, threshold=self._threshold)
+        LOGGER.debug("Not biased result", highest_score=highest_score, threshold=threshold)
 
-        return output, True, calculate_risk_score(highest_score, self._threshold)
+        return output, True, calculate_risk_score(highest_score, threshold)

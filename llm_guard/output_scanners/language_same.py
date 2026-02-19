@@ -48,20 +48,23 @@ class LanguageSame(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, output: str, threshold: float | None = None) -> tuple[str, bool, float]:
         if prompt.strip() == "" or output.strip() == "":
             return prompt, True, -1.0
+
+        if threshold is None:
+            threshold = self._threshold
 
         detected_languages = self._pipeline([prompt, output])
         prompt_languages = [
             detected_language["label"]
             for detected_language in detected_languages[0]
-            if detected_language["score"] > self._threshold
+            if detected_language["score"] > threshold
         ]
         output_languages = [
             detected_language["label"]
             for detected_language in detected_languages[1]
-            if detected_language["score"] > self._threshold
+            if detected_language["score"] > threshold
         ]
 
         if len(prompt_languages) == 0:
