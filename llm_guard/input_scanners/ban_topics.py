@@ -99,7 +99,7 @@ class BanTopics(Scanner):
 
     def __init__(
         self,
-        topics: list[str],
+        topics: list[str]=[],
         *,
         threshold: float = 0.6,
         model: Model | None = None,

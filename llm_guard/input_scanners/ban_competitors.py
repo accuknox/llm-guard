@@ -34,7 +34,7 @@ class BanCompetitors(Scanner):
 
     def __init__(
         self,
-        competitors: Sequence[str],
+        competitors: Sequence[str] = [],
         *,
         threshold: float = 0.5,
         redact: bool = True,

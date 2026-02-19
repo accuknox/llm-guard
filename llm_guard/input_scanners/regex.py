@@ -43,7 +43,7 @@ class Regex(Scanner):
 
     def __init__(
         self,
-        patterns: list[str],
+        patterns: list[str]=[],
         *,
         is_blocked: bool = True,
         match_type: MatchType | str = MatchType.ALL,

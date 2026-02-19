@@ -65,7 +65,7 @@ class Code(Scanner):
 
     def __init__(
         self,
-        languages: list[str],
+        languages: list[str]=[],
         *,
         model: Model | None = None,
         is_blocked: bool = True,
