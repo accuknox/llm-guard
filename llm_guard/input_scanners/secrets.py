@@ -456,12 +456,15 @@ class Secrets(Scanner):
 
         return redacted_value
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, redact_mode: str | None = None) -> tuple[str, bool, float]:
         secrets = SecretsCollection()
 
         risk_score = -1.0
         if prompt.strip() == "":
             return prompt, True, risk_score
+
+        if redact_mode is None:
+            redact_mode = self._redact_mode
 
         temp_file = tempfile.NamedTemporaryFile(delete=False)
         temp_file.write(prompt.encode("utf-8"))
@@ -486,7 +489,7 @@ class Secrets(Scanner):
                 )
 
                 text_replace_builder.replace_text_get_insertion_index(
-                    self.redact_value(secret_value, self._redact_mode),
+                    self.redact_value(secret_value, redact_mode),
                     character_start_index,
                     character_end_index,
                 )

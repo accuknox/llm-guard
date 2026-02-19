@@ -87,29 +87,53 @@ class BanSubstrings(Scanner):
         self._redact = redact
         self._contains_all = contains_all
 
-    def _redact_text(self, text: str, substrings: list[str]) -> str:
+    def _redact_text(
+        self, text: str, substrings: list[str], case_sensitive: bool | None = None
+    ) -> str:
+        if case_sensitive is None:
+            case_sensitive = self._case_sensitive
+
         redacted_text = text
         for s in substrings:
-            regex_redacted = re.compile(re.escape(s), 0 if self._case_sensitive else re.IGNORECASE)
+            regex_redacted = re.compile(re.escape(s), 0 if case_sensitive else re.IGNORECASE)
             redacted_text = regex_redacted.sub("[REDACTED]", redacted_text)
 
         return redacted_text
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        substrings: list[str] | None = None,
+        match_type: MatchType | None = None,
+        case_sensitive: bool | None = None,
+        redact: bool | None = None,
+        contains_all: bool | None = None,
+    ) -> tuple[str, bool, float]:
         sanitized_prompt = prompt
         matched_substrings = []
         missing_substrings = []
 
-        for s in self._substrings:
-            if self._case_sensitive is False:
+        if substrings is None:
+            substrings = self._substrings
+        if match_type is None:
+            match_type = self._match_type
+        if case_sensitive is None:
+            case_sensitive = self._case_sensitive
+        if redact is None:
+            redact = self._redact
+        if contains_all is None:
+            contains_all = self._contains_all
+
+        for s in substrings:
+            if case_sensitive is False:
                 s, prompt = s.lower(), prompt.lower()
 
-            if self._match_type.match(prompt, s):
+            if match_type.match(prompt, s):
                 matched_substrings.append(s)
             else:
                 missing_substrings.append(s)
 
-        if self._contains_all:
+        if contains_all:
             if len(missing_substrings) > 0:
                 LOGGER.debug(
                     "Some substrings were not found",
@@ -117,8 +141,10 @@ class BanSubstrings(Scanner):
                 )
                 return sanitized_prompt, True, 0.0
 
-            if self._redact:
-                sanitized_prompt = self._redact_text(sanitized_prompt, matched_substrings)
+            if redact:
+                sanitized_prompt = self._redact_text(
+                    sanitized_prompt, matched_substrings, case_sensitive
+                )
                 LOGGER.debug("Redacted banned substrings")
 
             LOGGER.warning("All substrings were found")
@@ -131,8 +157,10 @@ class BanSubstrings(Scanner):
                 matched_substrings=matched_substrings,
             )
 
-            if self._redact:
-                sanitized_prompt = self._redact_text(sanitized_prompt, matched_substrings)
+            if redact:
+                sanitized_prompt = self._redact_text(
+                    sanitized_prompt, matched_substrings, case_sensitive
+                )
                 LOGGER.debug("Redacted banned substrings")
 
             return sanitized_prompt, False, 1.0

@@ -72,9 +72,12 @@ class BanCode(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, threshold: float | None = None) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
+
+        if threshold is None:
+            threshold = self._threshold
 
         # Hack: Improve accuracy
         new_prompt = remove_markdown(prompt)  # Remove markdown
@@ -88,21 +91,21 @@ class BanCode(Scanner):
             2,
         )
 
-        if score > self._threshold:
+        if score > threshold:
             LOGGER.warning(
                 "Detected code in the text",
                 score=score,
-                threshold=self._threshold,
+                threshold=threshold,
                 text=new_prompt,
             )
 
-            return prompt, False, calculate_risk_score(score, self._threshold)
+            return prompt, False, calculate_risk_score(score, threshold)
 
         LOGGER.debug(
             "No code detected in the text",
             score=score,
-            threshold=self._threshold,
+            threshold=threshold,
             text=new_prompt,
         )
 
-        return prompt, True, calculate_risk_score(score, self._threshold)
+        return prompt, True, calculate_risk_score(score, threshold)

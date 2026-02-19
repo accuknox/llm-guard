@@ -93,7 +93,7 @@ def _add_recognizers(
     return registry
 
 
-def _get_nlp_engine(languages: list[str]) -> NlpEngine:
+def get_nlp_engine(languages: list[str]) -> NlpEngine:
     models = []
 
     for language in languages:
@@ -140,8 +140,10 @@ def get_analyzer(
     regex_groups: list[RegexPattern],
     custom_names: list[str],
     supported_languages: list[str],
+    nlp_engine: NlpEngine | None = None,
 ) -> AnalyzerEngine:
-    nlp_engine = _get_nlp_engine(languages=supported_languages)
+    if not nlp_engine:
+        nlp_engine = get_nlp_engine(languages=supported_languages)
 
     registry = RecognizerRegistry(supported_languages=supported_languages)
     registry.load_predefined_recognizers(nlp_engine=nlp_engine)

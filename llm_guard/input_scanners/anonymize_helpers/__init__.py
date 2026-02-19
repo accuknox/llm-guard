@@ -1,10 +1,11 @@
-from .analyzer import get_analyzer, get_transformers_recognizer
+from .analyzer import get_analyzer, get_nlp_engine, get_transformers_recognizer
 from .faker import get_fake_value
 from .ner_mapping import *
 from .regex_patterns import get_regex_patterns
 
 __all__ = [
     "get_analyzer",
+    "get_nlp_engine",
     "get_transformers_recognizer",
     "get_fake_value",
     "BERT_BASE_NER_CONF",

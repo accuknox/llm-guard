@@ -137,10 +137,23 @@ class EmotionDetection(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        threshold: float | None = None,
+        blocked_emotions: List[str] | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
+        if threshold is None:
+            threshold = self._threshold
+        if blocked_emotions is None:
+            blocked_emotions = self._blocked_emotions
+        if match_type is None:
+            match_type = self._match_type
+
         if self._return_full_output:
             sanitized_prompt, is_valid, risk_score, emotion_analysis = self.scan_with_full_output(
-                prompt
+                prompt, threshold, blocked_emotions, match_type
             )
             # Store the emotion analysis for later access if needed
             self._last_emotion_analysis = emotion_analysis
@@ -149,7 +162,7 @@ class EmotionDetection(Scanner):
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        inputs = self._match_type.get_inputs(prompt)
+        inputs = match_type.get_inputs(prompt)
 
         highest_emotion_score = 0.0
         emotions_above_threshold = []
@@ -165,8 +178,8 @@ class EmotionDetection(Scanner):
                     continue
 
                 # Check if this emotion is blocked
-                if emotion in self._blocked_emotions:
-                    if score > self._threshold:
+                if emotion in blocked_emotions:
+                    if score > threshold:
                         emotions_above_threshold.append(result)
 
                     if score > highest_emotion_score:
@@ -176,12 +189,12 @@ class EmotionDetection(Scanner):
             LOGGER.warning(
                 "Detected blocked emotions in the text",
                 emotions=emotions_above_threshold,
-                threshold=self._threshold,
+                threshold=threshold,
             )
             return (
                 prompt,
                 False,
-                calculate_risk_score(highest_emotion_score, self._threshold),
+                calculate_risk_score(highest_emotion_score, threshold),
             )
 
         LOGGER.debug("No blocked emotions found in the text", results=results_all)
@@ -220,7 +233,13 @@ class EmotionDetection(Scanner):
 
         return emotion_scores
 
-    def scan_with_full_output(self, prompt: str) -> tuple[str, bool, float, Dict[str, float]]:
+    def scan_with_full_output(
+        self,
+        prompt: str,
+        threshold: float | None = None,
+        blocked_emotions: List[str] | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float, Dict[str, float]]:
         """
         Scan the prompt and return full emotion analysis along with the standard results.
 
@@ -234,10 +253,17 @@ class EmotionDetection(Scanner):
                 - risk_score: The risk score
                 - emotion_analysis: Full emotion analysis with scores
         """
+        if threshold is None:
+            threshold = self._threshold
+        if blocked_emotions is None:
+            blocked_emotions = self._blocked_emotions
+        if match_type is None:
+            match_type = self._match_type
+
         if prompt.strip() == "":
             return prompt, True, -1.0, {}
 
-        inputs = self._match_type.get_inputs(prompt)
+        inputs = match_type.get_inputs(prompt)
 
         highest_emotion_score = 0.0
         emotions_above_threshold = []
@@ -259,8 +285,8 @@ class EmotionDetection(Scanner):
                     continue
 
                 # Check if this emotion is blocked
-                if emotion in self._blocked_emotions:
-                    if score > self._threshold:
+                if emotion in blocked_emotions:
+                    if score > threshold:
                         emotions_above_threshold.append(result)
 
                     if score > highest_emotion_score:
@@ -270,12 +296,12 @@ class EmotionDetection(Scanner):
             LOGGER.warning(
                 "Detected blocked emotions in the text",
                 emotions=emotions_above_threshold,
-                threshold=self._threshold,
+                threshold=threshold,
             )
             return (
                 prompt,
                 False,
-                calculate_risk_score(highest_emotion_score, self._threshold),
+                calculate_risk_score(highest_emotion_score, threshold),
                 emotion_analysis,
             )
 

@@ -125,9 +125,26 @@ class Code(Scanner):
 
         return fenced_code_blocks + inline_code
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        languages: list[str] | None = None,
+        is_blocked: bool | None = None,
+        threshold: float | None = None,
+    ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
+
+        if languages is None:
+            languages_config = self._languages
+        else:
+            languages_config = languages
+
+        if is_blocked is None:
+            is_blocked = self._is_blocked
+
+        if threshold is None:
+            threshold = self._threshold
 
         # Try to extract code snippets from Markdown
         code_blocks = self._extract_code_blocks(prompt)
@@ -141,36 +158,36 @@ class Code(Scanner):
 
         # Only check when the code is detected
         results = self._pipeline(code_blocks)
-        for code_block, languages in zip(code_blocks, results):
+        for code_block, results_languages in zip(code_blocks, results):
             LOGGER.debug(
                 "Detected languages in the code",
-                languages=languages,
+                languages=results_languages,
                 code_block=code_block,
             )
 
-            for language in languages:
+            for language in results_languages:
                 score = round(language["score"], 2)
 
-                if score < self._threshold or language["label"] not in self._languages:
+                if score < threshold or language["label"] not in languages_config:
                     continue
 
-                if self._is_blocked:
+                if is_blocked:
                     LOGGER.warning(
                         "Language is not allowed",
                         language_name=language["label"],
                         score=score,
                     )
-                    return prompt, False, calculate_risk_score(score, self._threshold)
+                    return prompt, False, calculate_risk_score(score, threshold)
 
-                if not self._is_blocked:
+                if not is_blocked:
                     LOGGER.debug(
                         "Language is allowed",
                         language_name=language["label"],
                         score=score,
                     )
-                    return prompt, True, calculate_risk_score(score, self._threshold)
+                    return prompt, True, calculate_risk_score(score, threshold)
 
-        if self._is_blocked:
+        if is_blocked:
             LOGGER.debug("No blocked languages detected")
             return prompt, True, -1.0
 
