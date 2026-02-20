@@ -20,7 +20,7 @@ def get_tokenizer(model: Model):
         model (Model): The model to load the tokenizer for.
     """
     tokenizer_kwargs = model.tokenizer_kwargs or {}
-    tokenizer_kwargs.setdefault("local_files_only", True)
+    # tokenizer_kwargs.setdefault("local_files_only", True)
     transformers = lazy_load_dep("transformers")
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model.path,
@@ -93,7 +93,7 @@ def get_tokenizer_and_model_for_classification(
 
     if use_onnx is False:
         kwargs = model.kwargs or {}
-        kwargs.setdefault("local_files_only", True)
+        # kwargs.setdefault("local_files_only", True)
         tf_model = transformers.AutoModelForSequenceClassification.from_pretrained(
             model.path,
             subfolder=model.subfolder,
