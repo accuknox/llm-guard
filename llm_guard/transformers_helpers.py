@@ -130,7 +130,7 @@ def get_tokenizer_and_model_for_ner(
 
     if use_onnx is False:
         kwargs = model.kwargs or {}
-        kwargs.setdefault("local_files_only", True)
+        # kwargs.setdefault("local_files_only", True)
         tf_model = transformers.AutoModelForTokenClassification.from_pretrained(
             model.path,
             subfolder=model.subfolder,
@@ -178,7 +178,7 @@ def pipeline(
     if kwargs.get("max_length", None) is None:
         kwargs["max_length"] = tokenizer.model_max_length
 
-    kwargs.setdefault("local_files_only", True)
+    # kwargs.setdefault("local_files_only", True)
 
     transformers = lazy_load_dep("transformers")
     return transformers.pipeline(
