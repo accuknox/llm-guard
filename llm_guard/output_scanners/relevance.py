@@ -106,7 +106,7 @@ class Relevance(Scanner):
         else:
             transformers = lazy_load_dep("transformers")
             kwargs = model.kwargs or {}
-            kwargs.setdefault("local_files_only", True)
+            # kwargs.setdefault("local_files_only", True)
             self._model = transformers.AutoModel.from_pretrained(
                 model.path,
                 subfolder=model.subfolder,
