@@ -90,7 +90,10 @@ class Regex(Scanner):
 
         if match_type is None:
             match_type = self._match_type
-
+        
+        if isinstance(match_type, str):
+            match_type = MatchType(match_type)
+        
         if redact is None:
             redact = self._redact
 
