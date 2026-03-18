@@ -16,12 +16,13 @@ DEFAULT_MODEL = Model(
     onnx_path="ProtectAI/unbiased-toxic-roberta-onnx",
     onnx_revision="34480fa958f6657ad835c345808475755b6974a7",
     pipeline_kwargs={
-        "padding": "max_length",
+        "padding": True,
         "top_k": None,
         "function_to_apply": "sigmoid",
         "return_token_type_ids": False,
         "max_length": 512,
         "truncation": True,
+        "batch_size": 4,
     },
 )
 

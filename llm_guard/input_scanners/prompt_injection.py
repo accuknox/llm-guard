@@ -47,6 +47,8 @@ V2_MODEL = Model(
         "return_token_type_ids": False,
         "max_length": 512,
         "truncation": True,
+        "padding": True,
+        "batch_size": 4,  
     },
 )
 
