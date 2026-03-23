@@ -93,6 +93,9 @@ class Regex(Scanner):
 
         if redact is None:
             redact = self._redact
+        
+        if isinstance(match_type, str):
+            match_type = MatchType(match_type)
 
         text_replace_builder = TextReplaceBuilder(original_text=prompt)
         for pattern in regex_patterns:
