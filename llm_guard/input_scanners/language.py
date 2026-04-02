@@ -103,6 +103,9 @@ class Language(Scanner):
         if match_type is None:
             match_type = self._match_type
 
+        if isinstance(match_type, str):
+            match_type = MatchType(match_type)
+
         results_all = self._pipeline(match_type.get_inputs(prompt))
         for result_chunk in results_all:
             languages_above_threshold = [
