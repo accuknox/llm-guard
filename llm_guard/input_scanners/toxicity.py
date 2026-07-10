@@ -7,6 +7,7 @@ from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classific
 from llm_guard.util import calculate_risk_score, get_logger, split_text_by_sentences
 
 from .base import Scanner
+from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
@@ -94,6 +95,10 @@ class Toxicity(Scanner):
             **model.pipeline_kwargs,
         )
 
+        # Built lazily on the first analyze_spans() call so captum is only
+        # required when span attribution is actually used.
+        self._span_detector: SpanDetector | None = None
+
     def scan(self, prompt: str) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
@@ -130,3 +135,30 @@ class Toxicity(Scanner):
             True,
             calculate_risk_score(highest_toxicity_score, self._threshold),
         )
+
+    def analyze_spans(self, prompt: str) -> list[dict]:
+        """Return the character spans of the prompt that drive the toxic labels.
+
+        Meant to be called only after scan() has flagged the prompt (e.g. to
+        explain a violation), since it runs an Integrated Gradients pass. This is
+        a multi-label (sigmoid) model, so attribution targets the highest-scoring
+        toxic label in each chunk.
+
+        Returns a list of {"text", "score", "start", "end"} dicts.
+        """
+        if prompt.strip() == "":
+            return []
+
+        if self._span_detector is None:
+            model = self._pipeline.model
+            label2id = model.config.label2id
+            target_labels = [label2id[label] for label in _toxic_labels if label in label2id]
+            self._span_detector = SpanDetector(
+                model=model,
+                tokenizer=self._pipeline.tokenizer,
+                target_class=target_labels,
+                multi_label=True,
+                classify_threshold=self._threshold,
+            )
+
+        return self._span_detector.detect_as_dicts(prompt)

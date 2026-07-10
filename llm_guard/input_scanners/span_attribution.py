@@ -35,8 +35,9 @@ class SpanDetector:
         self,
         model,
         tokenizer,
-        target_class: int,
+        target_class: int | list[int],
         *,
+        multi_label: bool = False,
         device=None,
         chunk_size: int = 510,
         chunk_overlap: int = 50,
@@ -45,10 +46,20 @@ class SpanDetector:
         n_steps: int = 50,
         embedding_layer=None,
     ):
+        """
+        target_class: index (single-label softmax) or list of candidate indices
+            (multi-label sigmoid). For a list, the highest-scoring label per chunk
+            is the one classified and attributed.
+        multi_label: True for sigmoid multi-label models (e.g. toxicity), where
+            labels are independent; False for single-label softmax models.
+        """
         self._torch = lazy_load_dep("torch")
         self._model = model
         self._tokenizer = tokenizer
-        self._target_class = target_class
+        self._targets = (
+            list(target_class) if isinstance(target_class, (list, tuple)) else [target_class]
+        )
+        self._multi_label = multi_label
         self._device = device
         self._chunk_size = chunk_size
         self._chunk_overlap = chunk_overlap
@@ -99,17 +110,21 @@ class SpanDetector:
             if end >= n:
                 break
 
-    def _classify(self, chunk_ids: list[int]) -> float:
+    def _classify(self, chunk_ids: list[int]) -> tuple[float, int]:
+        """Return (score, target_index) for the chunk. For multi-label models the
+        target is the highest-scoring candidate label; for single-label models it
+        is the sole target."""
         torch = self._torch
         input_ids = torch.tensor([self._wrap(chunk_ids)], device=self._device)
         attention_mask = torch.ones_like(input_ids)
         with torch.no_grad():
             logits = self._forward(input_ids, attention_mask)
-            probs = torch.softmax(logits, dim=-1)
-        return probs[0, self._target_class].item()
+            probs = (torch.sigmoid(logits) if self._multi_label else torch.softmax(logits, dim=-1))[0]
+        target = max(self._targets, key=lambda i: probs[i].item())
+        return probs[target].item(), target
 
     def _attribute(
-        self, chunk_ids: list[int], chunk_offsets: list[tuple[int, int]], prompt: str
+        self, chunk_ids: list[int], chunk_offsets: list[tuple[int, int]], prompt: str, target: int
     ) -> list[Span]:
         torch = self._torch
         input_ids = torch.tensor([self._wrap(chunk_ids)], device=self._device)
@@ -123,7 +138,7 @@ class SpanDetector:
         attributions = self._lig.attribute(
             input_ids,
             baselines=baseline,
-            target=self._target_class,
+            target=target,
             additional_forward_args=(attention_mask,),
             n_steps=self._n_steps,
         )
@@ -205,7 +220,8 @@ class SpanDetector:
             return []
 
         chunks = list(self._chunk(token_ids, offsets))
-        chunk_scores = [self._classify(ids) for ids, _ in chunks]
+        classified = [self._classify(ids) for ids, _ in chunks]
+        chunk_scores = [score for score, _ in classified]
 
         # Attribute chunks over the threshold; if none, fall back to the single
         # highest-scoring chunk so a flagged prompt always yields a span.
@@ -216,7 +232,8 @@ class SpanDetector:
         spans: list[Span] = []
         for i in flagged:
             chunk_ids, chunk_offsets = chunks[i]
-            spans.extend(self._attribute(chunk_ids, chunk_offsets, prompt))
+            target = classified[i][1]
+            spans.extend(self._attribute(chunk_ids, chunk_offsets, prompt, target))
 
         return self._merge_spans(spans, prompt)
 
