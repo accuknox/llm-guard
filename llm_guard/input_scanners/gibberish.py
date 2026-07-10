@@ -4,7 +4,12 @@ from enum import Enum
 
 from llm_guard.model import Model
 from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classification, pipeline
-from llm_guard.util import calculate_risk_score, get_logger, split_text_by_sentences
+from llm_guard.util import (
+    calculate_risk_score,
+    get_logger,
+    split_text_by_sentences,
+    split_text_to_token_chunks,
+)
 
 from .base import Scanner
 from .span_attribution import SpanDetector
@@ -92,8 +97,16 @@ class Gibberish(Scanner):
         if prompt.strip() == "":
             return prompt, True, -1.0
 
+        # Chunk long inputs so nothing past the model's 512-token window is
+        # silently truncated; score every chunk and keep the max.
+        inputs = []
+        for text in self._match_type.get_inputs(prompt):
+            inputs.extend(split_text_to_token_chunks(self._classifier.tokenizer, text))
+        if not inputs:
+            return prompt, True, -1.0
+
         highest_score = 0.0
-        results_all = self._classifier(self._match_type.get_inputs(prompt))
+        results_all = self._classifier(inputs)
         LOGGER.debug("Gibberish detection finished", results=results_all)
         for result in results_all:
             score = round(

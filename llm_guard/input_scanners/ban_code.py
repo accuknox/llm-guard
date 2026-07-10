@@ -4,7 +4,12 @@ import re
 
 from llm_guard.model import Model
 from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classification, pipeline
-from llm_guard.util import calculate_risk_score, get_logger, remove_markdown
+from llm_guard.util import (
+    calculate_risk_score,
+    get_logger,
+    remove_markdown,
+    split_text_to_token_chunks,
+)
 
 from .base import Scanner
 from .span_attribution import SpanDetector
@@ -79,11 +84,19 @@ class BanCode(Scanner):
         new_prompt = re.sub(r"\d+", "", new_prompt)  # Remove numbers
         new_prompt = re.sub(r'\.(?!\d)(?=[\s\'"“”‘’)\]}]|$)', "", new_prompt)  # Remove periods
 
-        result = self._classifier(new_prompt)[0]
-        score = round(
-            result["score"] if result["label"] in "CODE" else 1 - result["score"],
-            2,
-        )
+        # Chunk long inputs so nothing past the model's 512-token window is
+        # silently truncated; score every chunk and keep the max.
+        chunks = split_text_to_token_chunks(self._classifier.tokenizer, new_prompt)
+        if not chunks:
+            return prompt, True, -1.0
+
+        score = 0.0
+        for result in self._classifier(chunks):
+            chunk_score = round(
+                result["score"] if result["label"] in "CODE" else 1 - result["score"],
+                2,
+            )
+            score = max(score, chunk_score)
 
         if score > self._threshold:
             LOGGER.warning(

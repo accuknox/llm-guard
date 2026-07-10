@@ -189,6 +189,46 @@ def split_text_to_word_chunks(
     ]
 
 
+def split_text_to_token_chunks(
+    tokenizer, text: str, max_tokens: int = 512, overlap: int = 32
+) -> list[str]:
+    """Split text into substrings that each stay within the model's token limit.
+
+    Uses the model's own (fast) tokenizer so every chunk is guaranteed to fit in
+    ``max_tokens`` after the [CLS]/[SEP] special tokens are added, avoiding the
+    silent truncation of long inputs. Chunks overlap by ``overlap`` tokens to
+    preserve context across boundaries.
+
+    :param tokenizer: A fast HuggingFace tokenizer (must support offset mapping).
+    :param text: The text to split.
+    :param max_tokens: The model's max sequence length (special tokens included).
+    :param overlap: Number of overlapping tokens between consecutive chunks.
+    :return: List of text substrings, each within the token limit.
+    """
+    if not text:
+        return []
+
+    encoded = tokenizer(text, add_special_tokens=False, return_offsets_mapping=True)
+    offsets = encoded["offset_mapping"]
+    n = len(offsets)
+
+    # Reserve room for the [CLS]/[SEP] (or <s>/</s>) special tokens.
+    window = max_tokens - 2
+    if n <= window:
+        return [text]
+
+    stride = max(window - overlap, 1)
+    chunks = []
+    for start in range(0, n, stride):
+        end = min(start + window, n)
+        start_char = offsets[start][0]
+        end_char = offsets[end - 1][1]
+        chunks.append(text[start_char:end_char])
+        if end >= n:
+            break
+    return chunks
+
+
 def truncate_tokens_head_tail(tokens, max_length=512, head_length=128, tail_length=382):
     if len(tokens) > max_length:
         head_tokens = tokens[:head_length]
