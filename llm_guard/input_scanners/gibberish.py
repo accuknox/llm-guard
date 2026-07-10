@@ -7,6 +7,7 @@ from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classific
 from llm_guard.util import calculate_risk_score, get_logger, split_text_by_sentences
 
 from .base import Scanner
+from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
@@ -83,6 +84,10 @@ class Gibberish(Scanner):
             **model.pipeline_kwargs,
         )
 
+        # Built lazily on the first analyze_spans() call so captum is only
+        # required when span attribution is actually used.
+        self._span_detector: SpanDetector | None = None
+
     def scan(self, prompt: str) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
@@ -115,3 +120,26 @@ class Gibberish(Scanner):
         )
 
         return prompt, True, calculate_risk_score(highest_score, self._threshold)
+
+    def analyze_spans(self, prompt: str) -> list[dict]:
+        """Return the character spans of the prompt that drive the GIBBERISH class.
+
+        Meant to be called only after scan() has flagged the prompt (e.g. to
+        explain a violation), since it runs an Integrated Gradients pass.
+
+        Returns a list of {"text", "score", "start", "end"} dicts.
+        """
+        if prompt.strip() == "":
+            return []
+
+        if self._span_detector is None:
+            model = self._classifier.model
+            target_class = model.config.label2id.get("GIBBERISH", 0)
+            self._span_detector = SpanDetector(
+                model=model,
+                tokenizer=self._classifier.tokenizer,
+                target_class=target_class,
+                classify_threshold=self._threshold,
+            )
+
+        return self._span_detector.detect_as_dicts(prompt)
