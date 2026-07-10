@@ -10,20 +10,23 @@ from .base import Scanner
 
 LOGGER = get_logger()
 
+# Accuknox fine-tuned RoBERTa gibberish classifier. Private repo, so loading
+# requires an HF token (set HF_TOKEN in the environment; token=True picks it up).
+# Binary labels: 0=GIBBERISH, 1=NORMAL. No ONNX export published, so use_onnx
+# would fall back to an on-the-fly export.
 DEFAULT_MODEL = Model(
-    path="madhurjindal/autonlp-Gibberish-Detector-492513457",
-    revision="fddf42c3008ad61cc481f90d02dd0712ba1ee2d8",
-    onnx_path="madhurjindal/autonlp-Gibberish-Detector-492513457",
-    onnx_revision="fddf42c3008ad61cc481f90d02dd0712ba1ee2d8",
-    onnx_subfolder="onnx",
+    path="Accuknoxtechnologies/gibberish-deberta",
+    revision="7fd98078cc3b730acdf9c66a6b0c9ddcfb8b59b0",
     pipeline_kwargs={
         "return_token_type_ids": False,
         "max_length": 512,
         "truncation": True,
     },
+    tokenizer_kwargs={"token": True},
+    kwargs={"token": True},
 )
 
-_gibberish_labels = ["word salad", "noise", "mild gibberish"]
+_gibberish_labels = ["GIBBERISH"]
 
 
 class MatchType(Enum):
