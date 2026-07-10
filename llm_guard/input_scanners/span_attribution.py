@@ -128,8 +128,13 @@ class SpanDetector:
             n_steps=self._n_steps,
         )
 
-        # Drop [CLS]/[SEP], L2-norm across the embedding dim -> one score per token.
-        scores = attributions.squeeze(0)[1:-1].norm(dim=-1)
+        # Drop [CLS]/[SEP] and sum the signed attributions across the embedding
+        # dim -> each token's (signed) contribution to the target-class logit.
+        # Keep only positive contributions (tokens pushing toward the violation
+        # class); tokens pushing the other way are clamped to 0. A signed sum,
+        # rather than an L2 norm, prevents benign tokens the model is merely
+        # sensitive to from lighting up the whole span.
+        scores = attributions.squeeze(0)[1:-1].sum(dim=-1).clamp(min=0)
         max_val = scores.max()
         if max_val > 0:
             scores = scores / max_val
