@@ -394,3 +394,46 @@ class Anonymize(Scanner):
         LOGGER.debug("Prompt does not have sensitive data to replace", risk_score=risk_score)
 
         return prompt, True, -1.0
+
+    def analyze_spans(self, prompt: str) -> list[dict]:
+        """Return the character spans of the prompt that hold detected PII.
+
+        Presidio already reports exact offsets and a confidence score per
+        entity, so there is no Integrated Gradients / attribution step. This
+        mirrors scan()'s detection (same analyzer call, conflict resolution and
+        whitespace merge) so the spans line up with what scan() would redact.
+
+        The raw entity value is returned as "text" (the caller already holds the
+        prompt) to support true/false-positive review; switch to a placeholder
+        if that value must not be echoed. Returns a list of
+        {"text", "score", "start", "end", "label"} dicts, where "label" is the
+        entity type (e.g. "PERSON", "EMAIL_ADDRESS").
+        """
+        if prompt.strip() == "":
+            return []
+
+        analyzer_results = self._analyzer.analyze(
+            text=Anonymize.remove_single_quotes(prompt),
+            language=self._language,
+            entities=self._entity_types,
+            allow_list=self._allowed_names,
+            score_threshold=self._threshold,
+        )
+        analyzer_results = self._remove_conflicts_and_get_text_manipulation_data(analyzer_results)
+        merged_results = self._merge_entities_with_whitespace_between(prompt, analyzer_results)
+
+        spans: list[dict] = []
+        for result in sorted(merged_results, key=lambda element: element.start):
+            if result.end <= result.start:
+                continue
+            spans.append(
+                {
+                    "text": prompt[result.start : result.end],
+                    "score": round(float(result.score), 4),
+                    "start": result.start,
+                    "end": result.end,
+                    "label": result.entity_type,
+                }
+            )
+
+        return spans

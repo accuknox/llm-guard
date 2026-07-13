@@ -101,3 +101,37 @@ class Regex(Scanner):
 
         LOGGER.warning("None of the patterns matched the text")
         return text_replace_builder.output_text, False, 1.0
+
+    def analyze_spans(self, prompt: str) -> list[dict]:
+        """Return the character spans of the prompt that matched the patterns.
+
+        Regex matching already yields exact offsets, so there is no attribution
+        step. Only meaningful for a block-list scanner (is_blocked=True): there
+        a match is the violation. For an allow-list scanner (is_blocked=False) a
+        violation means *none* of the patterns matched, so there is no offending
+        span to return and this returns an empty list.
+
+        Returns a list of {"text", "score", "start", "end", "label"} dicts,
+        where "label" is the pattern that matched.
+        """
+        if not self._is_blocked:
+            return []
+
+        spans: list[dict] = []
+        for pattern in self._patterns:
+            for match in self._match_type.match(pattern, prompt):
+                start, end = match.start(), match.end()
+                if end <= start:
+                    continue
+                spans.append(
+                    {
+                        "text": prompt[start:end],
+                        "score": 1.0,
+                        "start": start,
+                        "end": end,
+                        "label": pattern.pattern,
+                    }
+                )
+
+        spans.sort(key=lambda s: s["start"])
+        return spans

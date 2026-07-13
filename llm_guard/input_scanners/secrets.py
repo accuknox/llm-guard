@@ -500,3 +500,52 @@ class Secrets(Scanner):
         LOGGER.debug("No secrets detected in the prompt")
 
         return prompt, True, -1.0
+
+    def analyze_spans(self, prompt: str) -> list[dict]:
+        """Return the character spans of the prompt that contain secrets.
+
+        Unlike the model-based scanners (BanCode/Gibberish/Toxicity), Secrets
+        uses the detect-secrets library, which reports the exact location of
+        each match, so there is no Integrated Gradients / attribution step: the
+        spans are exact. The secret value is redacted in the returned text (per
+        the scanner's redact_mode) so plaintext secrets are not echoed back in
+        the span output.
+
+        Returns a list of {"text", "score", "start", "end", "label"} dicts,
+        where "label" is the detect-secrets type (e.g. "AWS Access Key").
+        """
+        if prompt.strip() == "":
+            return []
+
+        secrets = SecretsCollection()
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file.write(prompt.encode("utf-8"))
+        temp_file.close()
+        try:
+            with transient_settings(self._detect_secrets_config):
+                secrets.scan_file(str(temp_file.name))
+        finally:
+            os.remove(temp_file.name)
+
+        spans: list[dict] = []
+        for file in secrets.files:
+            for found_secret in secrets[file]:
+                if found_secret.secret_value is None:
+                    continue
+
+                secret_value = str(found_secret.secret_value)
+                start = prompt.find(secret_value)
+                if start == -1:
+                    continue
+
+                spans.append(
+                    {
+                        "text": self.redact_value(secret_value, self._redact_mode),
+                        "score": 1.0,
+                        "start": start,
+                        "end": start + len(secret_value),
+                        "label": found_secret.type,
+                    }
+                )
+
+        return spans
