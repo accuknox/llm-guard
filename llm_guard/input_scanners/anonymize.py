@@ -404,10 +404,12 @@ class Anonymize(Scanner):
         whitespace merge) so the spans line up with what scan() would redact.
 
         The raw entity value is returned as "text" (the caller already holds the
-        prompt) to support true/false-positive review; switch to a placeholder
-        if that value must not be echoed. Returns a list of
-        {"text", "score", "start", "end", "label"} dicts, where "label" is the
-        entity type (e.g. "PERSON", "EMAIL_ADDRESS").
+        prompt) to support true/false-positive review. "label" reuses scan()'s
+        placeholder assignment, so entities are numbered per type
+        ([REDACTED_EMAIL_ADDRESS_1], [REDACTED_EMAIL_ADDRESS_2], ...) and a
+        repeated identical value reuses the same placeholder (matching the
+        anonymized output). Returns a list of
+        {"text", "score", "start", "end", "label"} dicts.
         """
         if prompt.strip() == "":
             return []
@@ -422,18 +424,31 @@ class Anonymize(Scanner):
         analyzer_results = self._remove_conflicts_and_get_text_manipulation_data(analyzer_results)
         merged_results = self._merge_entities_with_whitespace_between(prompt, analyzer_results)
 
+        # Reuse scan()'s placeholder assignment so labels match the anonymized
+        # output: numbered per entity type with the same placeholder reused for
+        # repeated identical values. use_faker is forced off so labels are the
+        # canonical [REDACTED_TYPE_N] form. _anonymize reads the vault (to reuse
+        # indices already assigned this prompt) but does not modify it, and
+        # appends one result per entity in sorted(reverse=True) order.
+        _, anonymized_results = self._anonymize(
+            prompt, merged_results, self._vault, use_faker=False
+        )
+
         spans: list[dict] = []
-        for result in sorted(merged_results, key=lambda element: element.start):
-            if result.end <= result.start:
+        for entity, (placeholder, _value) in zip(
+            sorted(merged_results, reverse=True), anonymized_results
+        ):
+            if entity.end <= entity.start:
                 continue
             spans.append(
                 {
-                    "text": prompt[result.start : result.end],
-                    "score": round(float(result.score), 4),
-                    "start": result.start,
-                    "end": result.end,
-                    "label": result.entity_type,
+                    "text": prompt[entity.start : entity.end],
+                    "score": round(float(entity.score), 4),
+                    "start": entity.start,
+                    "end": entity.end,
+                    "label": placeholder,
                 }
             )
 
+        spans.sort(key=lambda s: s["start"])
         return spans
