@@ -507,9 +507,10 @@ class Secrets(Scanner):
         Unlike the model-based scanners (BanCode/Gibberish/Toxicity), Secrets
         uses the detect-secrets library, which reports the exact location of
         each match, so there is no Integrated Gradients / attribution step: the
-        spans are exact. The secret value is redacted in the returned text (per
-        the scanner's redact_mode) so plaintext secrets are not echoed back in
-        the span output.
+        spans are exact. The secret value in "text" is partially redacted
+        (leading/trailing chars only, e.g. "hf..aO") so it can be reviewed
+        without echoing the full plaintext secret. This is independent of the
+        scanner's redact_mode, which still governs scan()'s sanitized output.
 
         Returns a list of {"text", "score", "start", "end", "label"} dicts,
         where "label" is the detect-secrets type (e.g. "AWS Access Key").
@@ -540,7 +541,7 @@ class Secrets(Scanner):
 
                 spans.append(
                     {
-                        "text": self.redact_value(secret_value, self._redact_mode),
+                        "text": self.redact_value(secret_value, REDACT_PARTIAL),
                         "score": 1.0,
                         "start": start,
                         "end": start + len(secret_value),
