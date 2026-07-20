@@ -93,14 +93,24 @@ class Gibberish(Scanner):
         # required when span attribution is actually used.
         self._span_detector: SpanDetector | None = None
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
+
+        if threshold is None:
+            threshold = self._threshold
+        if match_type is None:
+            match_type = self._match_type
 
         # Chunk long inputs so nothing past the model's 512-token window is
         # silently truncated; score every chunk and keep the max.
         inputs = []
-        for text in self._match_type.get_inputs(prompt):
+        for text in match_type.get_inputs(prompt):
             inputs.extend(split_text_to_token_chunks(self._classifier.tokenizer, text))
         if not inputs:
             return prompt, True, -1.0
@@ -117,22 +127,22 @@ class Gibberish(Scanner):
             if score > highest_score:
                 highest_score = score
 
-        if highest_score > self._threshold:
+        if highest_score > threshold:
             LOGGER.warning(
                 "Detected gibberish text",
                 score=highest_score,
-                threshold=self._threshold,
+                threshold=threshold,
             )
 
-            return prompt, False, calculate_risk_score(highest_score, self._threshold)
+            return prompt, False, calculate_risk_score(highest_score, threshold)
 
         LOGGER.debug(
             "No gibberish in the text",
             highest_score=highest_score,
-            threshold=self._threshold,
+            threshold=threshold,
         )
 
-        return prompt, True, calculate_risk_score(highest_score, self._threshold)
+        return prompt, True, calculate_risk_score(highest_score, threshold)
 
     def analyze_spans(self, prompt: str) -> list[dict]:
         """Return the character spans of the prompt that drive the GIBBERISH class.

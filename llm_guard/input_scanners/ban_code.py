@@ -74,9 +74,12 @@ class BanCode(Scanner):
         # required when span attribution is actually used.
         self._span_detector: SpanDetector | None = None
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, threshold: float | None = None) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
+
+        if threshold is None:
+            threshold = self._threshold
 
         # Hack: Improve accuracy
         new_prompt = remove_markdown(prompt)  # Remove markdown
@@ -98,24 +101,24 @@ class BanCode(Scanner):
             )
             score = max(score, chunk_score)
 
-        if score > self._threshold:
+        if score > threshold:
             LOGGER.warning(
                 "Detected code in the text",
                 score=score,
-                threshold=self._threshold,
+                threshold=threshold,
                 text=new_prompt,
             )
 
-            return prompt, False, calculate_risk_score(score, self._threshold)
+            return prompt, False, calculate_risk_score(score, threshold)
 
         LOGGER.debug(
             "No code detected in the text",
             score=score,
-            threshold=self._threshold,
+            threshold=threshold,
             text=new_prompt,
         )
 
-        return prompt, True, calculate_risk_score(score, self._threshold)
+        return prompt, True, calculate_risk_score(score, threshold)
 
     def analyze_spans(self, prompt: str) -> list[dict]:
         """Return the character spans of the prompt that drive the CODE class.

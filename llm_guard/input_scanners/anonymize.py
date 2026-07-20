@@ -104,8 +104,10 @@ class Anonymize(Scanner):
 
         self._vault = vault
         self._entity_types = entity_types
+        self._hidden_names = hidden_names
         self._allowed_names = allowed_names
         self._preamble = preamble
+        self._regex_patterns = regex_patterns
         self._use_faker = use_faker
         self._threshold = threshold
         self._language = language
@@ -113,14 +115,16 @@ class Anonymize(Scanner):
         if not recognizer_conf:
             recognizer_conf = DEBERTA_AI4PRIVACY_v2_CONF
 
-        transformers_recognizer = get_transformers_recognizer(
+        # Retained so scan() can rebuild the analyzer when a caller overrides
+        # hidden_names / regex_patterns per request.
+        self._transformers_recognizer = get_transformers_recognizer(
             recognizer_conf=recognizer_conf,
             use_onnx=use_onnx,
             supported_language=language,
         )
 
         self._analyzer = get_analyzer(
-            recognizer=transformers_recognizer,
+            recognizer=self._transformers_recognizer,
             regex_groups=get_regex_patterns(regex_patterns),
             custom_names=hidden_names,
             supported_languages=list(set(["en", language])),
@@ -347,17 +351,54 @@ class Anonymize(Scanner):
         text_without_single_quotes = text.replace("'", " ")
         return text_without_single_quotes
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        vault: Vault | None = None,
+        *,
+        hidden_names: list[str] | None = None,
+        allowed_names: list[str] | None = None,
+        entity_types: list[str] | None = None,
+        preamble: str | None = None,
+        regex_patterns: list[DefaultRegexPatterns | RegexPatternsReuse] | None = None,
+        use_faker: bool | None = None,
+        threshold: float | None = None,
+    ) -> tuple[str, bool, float]:
         risk_score = -1.0
         if prompt.strip() == "":
             return prompt, True, risk_score
 
-        analyzer_results = self._analyzer.analyze(
+        # Use provided arguments or fall back to the instance defaults.
+        vault = vault or self._vault
+        allowed_names = allowed_names if allowed_names is not None else self._allowed_names
+        entity_types = entity_types if entity_types is not None else self._entity_types
+        preamble = preamble if preamble is not None else self._preamble
+        use_faker = use_faker if use_faker is not None else self._use_faker
+        threshold = threshold if threshold is not None else self._threshold
+
+        if "CUSTOM" not in entity_types:
+            entity_types = entity_types + ["CUSTOM"]
+
+        # Only analyzer-affecting overrides force a rebuild; otherwise reuse the
+        # analyzer built once in __init__.
+        if hidden_names is not None or regex_patterns is not None:
+            analyzer = get_analyzer(
+                recognizer=self._transformers_recognizer,
+                regex_groups=get_regex_patterns(
+                    regex_patterns if regex_patterns is not None else self._regex_patterns
+                ),
+                custom_names=hidden_names if hidden_names is not None else self._hidden_names,
+                supported_languages=list(set(["en", self._language])),
+            )
+        else:
+            analyzer = self._analyzer
+
+        analyzer_results = analyzer.analyze(
             text=Anonymize.remove_single_quotes(prompt),
             language=self._language,
-            entities=self._entity_types,
-            allow_list=self._allowed_names,
-            score_threshold=self._threshold,
+            entities=entity_types,
+            allow_list=allowed_names,
+            score_threshold=threshold,
         )
 
         risk_score = round(
@@ -372,7 +413,7 @@ class Anonymize(Scanner):
         merged_results = self._merge_entities_with_whitespace_between(prompt, analyzer_results)
 
         sanitized_prompt, anonymized_results = self._anonymize(
-            prompt, merged_results, self._vault, self._use_faker
+            prompt, merged_results, vault, use_faker
         )
 
         if prompt != sanitized_prompt:
@@ -382,13 +423,13 @@ class Anonymize(Scanner):
                 risk_score=risk_score,
             )
             for entity_placeholder, entity_value in anonymized_results:
-                if not self._vault.placeholder_exists(entity_placeholder):
-                    self._vault.append((entity_placeholder, entity_value))
+                if not vault.placeholder_exists(entity_placeholder):
+                    vault.append((entity_placeholder, entity_value))
 
             return (
-                self._preamble + sanitized_prompt,
+                preamble + sanitized_prompt,
                 False,
-                calculate_risk_score(risk_score, self._threshold),
+                calculate_risk_score(risk_score, threshold),
             )
 
         LOGGER.debug("Prompt does not have sensitive data to replace", risk_score=risk_score)
