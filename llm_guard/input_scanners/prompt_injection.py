@@ -16,6 +16,7 @@ from llm_guard.util import (
 )
 
 from .base import Scanner
+from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
@@ -168,6 +169,10 @@ class PromptInjection(Scanner):
         match_type.set_tokenizer(tf_tokenizer)
         self._match_type = match_type
 
+        # Built lazily on the first analyze_spans() call so captum is only
+        # required when span attribution is actually used.
+        self._span_detector: SpanDetector | None = None
+
     def scan(
         self,
         prompt: str,
@@ -205,3 +210,28 @@ class PromptInjection(Scanner):
         LOGGER.debug("No prompt injection detected", highest_score=highest_score)
 
         return prompt, True, calculate_risk_score(highest_score, threshold)
+
+    def analyze_spans(self, prompt: str) -> list[dict]:
+        """Return the character spans of the prompt that drive the INJECTION class.
+
+        Meant to be called only after scan() has flagged the prompt (e.g. to
+        explain a violation), since it runs an Integrated Gradients pass. The
+        model is single-label softmax, so the detector attributes the INJECTION
+        class directly.
+
+        Returns a list of {"text", "score", "start", "end"} dicts.
+        """
+        if prompt.strip() == "":
+            return []
+
+        if self._span_detector is None:
+            model = self._pipeline.model
+            target_class = model.config.label2id.get("INJECTION", 1)
+            self._span_detector = SpanDetector(
+                model=model,
+                tokenizer=self._pipeline.tokenizer,
+                target_class=target_class,
+                classify_threshold=self._threshold,
+            )
+
+        return self._span_detector.detect_as_dicts(prompt)
