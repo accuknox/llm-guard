@@ -80,13 +80,21 @@ V2_SMALL_MODEL = Model(
 # multilingual / benign instruction-shaped traffic. No ONNX export published.
 MDEBERTA_MODEL = Model(
     path="Accuknoxtechnologies/mdeberta-prompt-injection",
-    revision="42f74a89ee701a6066d3948eb024ef427cf56f31",
+    revision="e13dce07f78dfb0e2d61dca58802314a343d4504",
     pipeline_kwargs={
         "return_token_type_ids": False,
         "max_length": 512,
         "truncation": True,
     },
-    tokenizer_kwargs={"token": True},
+    tokenizer_kwargs={
+        "token": True,
+        # The repo's tokenizer_config.json serialises `extra_special_tokens` as a
+        # list, but transformers expects a dict (it calls .keys()), which crashes
+        # DebertaV2TokenizerFast on load. Override with an empty dict: these are
+        # unused T5-style <extra_id_*> sentinels, irrelevant to classification and
+        # still present in the vocab via tokenizer.json.
+        "extra_special_tokens": {},
+    },
     kwargs={"token": True},
 )
 
