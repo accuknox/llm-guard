@@ -11,6 +11,7 @@ from llm_guard.util import (
     calculate_risk_score,
     get_logger,
     split_text_by_sentences,
+    split_text_to_token_chunks,
     split_text_to_word_chunks,
     truncate_tokens_head_tail,
 )
@@ -216,8 +217,16 @@ class PromptInjection(Scanner):
         if match_type is None:
             match_type = self._match_type
 
+        # Chunk long inputs so nothing past the model's 512-token window is
+        # silently truncated; score every chunk and keep the max.
+        inputs = []
+        for text in match_type.get_inputs(prompt):
+            inputs.extend(split_text_to_token_chunks(self._pipeline.tokenizer, text))
+        if not inputs:
+            return prompt, True, -1.0
+
         highest_score = 0.0
-        results_all = self._pipeline(match_type.get_inputs(prompt))
+        results_all = self._pipeline(inputs)
         for result in results_all:
             injection_score = round(
                 (result["score"] if result["label"] == "INJECTION" else 1 - result["score"]),

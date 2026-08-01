@@ -5,7 +5,7 @@ import re
 from llm_guard.exception import LLMGuardValidationError
 from llm_guard.model import Model
 from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classification, pipeline
-from llm_guard.util import calculate_risk_score, get_logger
+from llm_guard.util import calculate_risk_score, get_logger, split_text_to_token_chunks
 
 from .base import Scanner
 from .span_attribution import SpanDetector
@@ -185,9 +185,17 @@ class Code(Scanner):
 
         LOGGER.debug("Code blocks found in the output", code_blocks=code_blocks)
 
+        # Chunk each block so nothing past the model's 512-token window is
+        # silently truncated; every chunk is classified.
+        chunks = []
+        for block in code_blocks:
+            chunks.extend(split_text_to_token_chunks(self._pipeline.tokenizer, block))
+        if not chunks:
+            return prompt, True, -1.0
+
         # Only check when the code is detected
-        results = self._pipeline(code_blocks)
-        for code_block, results_languages in zip(code_blocks, results):
+        results = self._pipeline(chunks)
+        for code_block, results_languages in zip(chunks, results):
             LOGGER.debug(
                 "Detected languages in the code",
                 languages=results_languages,

@@ -4,7 +4,12 @@ from enum import Enum
 
 from llm_guard.model import Model
 from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classification, pipeline
-from llm_guard.util import calculate_risk_score, get_logger, split_text_by_sentences
+from llm_guard.util import (
+    calculate_risk_score,
+    get_logger,
+    split_text_by_sentences,
+    split_text_to_token_chunks,
+)
 
 from .base import Scanner
 from .span_attribution import SpanDetector
@@ -113,7 +118,13 @@ class Toxicity(Scanner):
         if match_type is None:
             match_type = self._match_type
 
-        inputs = match_type.get_inputs(prompt)
+        # Chunk long inputs so nothing past the model's 512-token window is
+        # silently truncated; score every chunk and keep the max.
+        inputs = []
+        for text in match_type.get_inputs(prompt):
+            inputs.extend(split_text_to_token_chunks(self._pipeline.tokenizer, text))
+        if not inputs:
+            return prompt, True, -1.0
 
         highest_toxicity_score = 0.0
         toxicity_above_threshold = []
