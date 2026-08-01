@@ -15,7 +15,7 @@ from llm_guard.input_scanners.base import Scanner as InputScanner
 from llm_guard.input_scanners.code import DEFAULT_MODEL as CODE_MODEL
 from llm_guard.input_scanners.gibberish import DEFAULT_MODEL as GIBBERISH_MODEL
 from llm_guard.input_scanners.language import DEFAULT_MODEL as LANGUAGE_MODEL
-from llm_guard.input_scanners.prompt_injection import V2_MODEL as PROMPT_INJECTION_MODEL
+from llm_guard.input_scanners.prompt_injection import DEFAULT_MODEL as PROMPT_INJECTION_MODEL
 from llm_guard.input_scanners.toxicity import DEFAULT_MODEL as TOXICITY_MODEL
 from llm_guard.model import Model
 from llm_guard.output_scanners.base import Scanner as OutputScanner

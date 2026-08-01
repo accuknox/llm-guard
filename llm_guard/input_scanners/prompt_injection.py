@@ -73,6 +73,25 @@ V2_SMALL_MODEL = Model(
     kwargs={"token": True},  # You can also configure with your token.
 )
 
+# Accuknox multilingual prompt-injection detector, fine-tuned from
+# microsoft/mdeberta-v3-base. Private repo, so loading needs an HF token (set
+# HF_TOKEN; token=True picks it up). Single-label softmax (0=BENIGN, 1=INJECTION).
+# Replaces the ProtectAI v2 model, which had a ~100% false-positive rate on
+# multilingual / benign instruction-shaped traffic. No ONNX export published.
+MDEBERTA_MODEL = Model(
+    path="Accuknoxtechnologies/mdeberta-prompt-injection",
+    revision="42f74a89ee701a6066d3948eb024ef427cf56f31",
+    pipeline_kwargs={
+        "return_token_type_ids": False,
+        "max_length": 512,
+        "truncation": True,
+    },
+    tokenizer_kwargs={"token": True},
+    kwargs={"token": True},
+)
+
+DEFAULT_MODEL = MDEBERTA_MODEL
+
 
 class MatchType(Enum):
     SENTENCE = "sentence"
@@ -129,7 +148,7 @@ class PromptInjection(Scanner):
         self,
         *,
         model: Model | None = None,
-        threshold: float = 0.92,
+        threshold: float = 0.5,
         match_type: MatchType | str = MatchType.FULL,
         use_onnx: bool = False,
     ) -> None:
@@ -137,8 +156,10 @@ class PromptInjection(Scanner):
         Initializes PromptInjection with a threshold.
 
         Parameters:
-            model (Model, optional): Chosen model to classify prompt. Default is Laiyer's one.
-            threshold (float): Threshold for the injection score. Default is 0.9.
+            model (Model, optional): Chosen model to classify prompt. Defaults to
+                the Accuknox multilingual mDeBERTa detector.
+            threshold (float): Threshold for the injection score. Default is 0.5,
+                matching the default model's recommended operating point.
             match_type (MatchType): Whether to match the full text or individual sentences. Default is MatchType.FULL.
             use_onnx (bool): Whether to use ONNX for inference. Defaults to False.
 
@@ -146,7 +167,7 @@ class PromptInjection(Scanner):
             ValueError: If non-existent models were provided.
         """
         if model is None:
-            model = V2_MODEL
+            model = DEFAULT_MODEL
 
         if isinstance(match_type, str):
             match_type = MatchType(match_type)
