@@ -8,14 +8,14 @@ from opentelemetry import metrics
 
 from llm_guard import input_scanners, output_scanners
 from llm_guard.input_scanners.anonymize_helpers import DEBERTA_AI4PRIVACY_v2_CONF
-from llm_guard.input_scanners.ban_code import MODEL_SM as BAN_CODE_MODEL
+from llm_guard.input_scanners.ban_code import DEFAULT_MODEL as BAN_CODE_MODEL
 from llm_guard.input_scanners.ban_competitors import MODEL_V1 as BAN_COMPETITORS_MODEL
 from llm_guard.input_scanners.ban_topics import MODEL_DEBERTA_BASE_V2 as BAN_TOPICS_MODEL
 from llm_guard.input_scanners.base import Scanner as InputScanner
 from llm_guard.input_scanners.code import DEFAULT_MODEL as CODE_MODEL
 from llm_guard.input_scanners.gibberish import DEFAULT_MODEL as GIBBERISH_MODEL
 from llm_guard.input_scanners.language import DEFAULT_MODEL as LANGUAGE_MODEL
-from llm_guard.input_scanners.prompt_injection import V2_MODEL as PROMPT_INJECTION_MODEL
+from llm_guard.input_scanners.prompt_injection import DEFAULT_MODEL as PROMPT_INJECTION_MODEL
 from llm_guard.input_scanners.toxicity import DEFAULT_MODEL as TOXICITY_MODEL
 from llm_guard.model import Model
 from llm_guard.output_scanners.base import Scanner as OutputScanner

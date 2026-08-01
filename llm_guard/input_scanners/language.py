@@ -4,7 +4,12 @@ from enum import Enum
 
 from llm_guard.model import Model
 from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classification, pipeline
-from llm_guard.util import calculate_risk_score, get_logger, split_text_by_sentences
+from llm_guard.util import (
+    calculate_risk_score,
+    get_logger,
+    split_text_by_sentences,
+    split_text_to_token_chunks,
+)
 
 from .base import Scanner
 
@@ -88,7 +93,15 @@ class Language(Scanner):
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        results_all = self._pipeline(self._match_type.get_inputs(prompt))
+        # Chunk long inputs so nothing past the model's 512-token window is
+        # silently truncated; score every chunk.
+        inputs = []
+        for text in self._match_type.get_inputs(prompt):
+            inputs.extend(split_text_to_token_chunks(self._pipeline.tokenizer, text))
+        if not inputs:
+            return prompt, True, -1.0
+
+        results_all = self._pipeline(inputs)
         for result_chunk in results_all:
             languages_above_threshold = [
                 result["label"] for result in result_chunk if result["score"] > self._threshold

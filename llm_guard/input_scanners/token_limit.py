@@ -58,16 +58,19 @@ class TokenLimit(Scanner):
 
         return splits, len(input_ids)
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(self, prompt: str, limit: int | None = None) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
+        if limit is None:
+            limit = self._limit
+
         chunks, num_tokens = self._split_text_on_tokens(text=prompt)
-        if num_tokens < self._limit:
+        if num_tokens < limit:
             LOGGER.debug(
                 "Prompt fits the maximum tokens",
                 num_tokens=num_tokens,
-                threshold=self._limit,
+                threshold=limit,
             )
             return prompt, True, -1.0
 

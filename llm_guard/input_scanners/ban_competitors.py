@@ -75,7 +75,19 @@ class BanCompetitors(Scanner):
             "ner", model=tf_model, tokenizer=tf_tokenizer, **model.pipeline_kwargs
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        competitors: Sequence[str] | None = None,
+        threshold: float | None = None,
+        redact: bool | None = None,
+    ) -> tuple[str, bool, float]:
+        competitors = competitors if competitors is not None else self._competitors
+        if threshold is None:
+            threshold = self._threshold
+        if redact is None:
+            redact = self._redact
+
         is_detected = False
         text_replace_builder = TextReplaceBuilder(original_text=prompt)
         entities = self._get_ner_results_for_text(prompt)
@@ -84,11 +96,11 @@ class BanCompetitors(Scanner):
 
         for entity in entities:
             entity["word"] = entity["word"].strip()
-            if entity["word"] not in self._competitors:
+            if entity["word"] not in competitors:
                 LOGGER.debug("Entity is not a specified competitor", entity=entity["word"])
                 continue
 
-            if entity["score"] < self._threshold:
+            if entity["score"] < threshold:
                 LOGGER.debug(
                     "Competitor detected but the score is below threshold",
                     entity=entity["word"],
@@ -98,7 +110,7 @@ class BanCompetitors(Scanner):
 
             is_detected = True
 
-            if self._redact:
+            if redact:
                 text_replace_builder.replace_text_get_insertion_index(
                     "[REDACTED]",
                     entity["start"],

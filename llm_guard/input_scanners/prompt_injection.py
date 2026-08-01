@@ -11,11 +11,13 @@ from llm_guard.util import (
     calculate_risk_score,
     get_logger,
     split_text_by_sentences,
+    split_text_to_token_chunks,
     split_text_to_word_chunks,
     truncate_tokens_head_tail,
 )
 
 from .base import Scanner
+from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
@@ -47,6 +49,8 @@ V2_MODEL = Model(
         "return_token_type_ids": False,
         "max_length": 512,
         "truncation": True,
+        "padding": True,
+        "batch_size": 4,  
     },
 )
 
@@ -69,6 +73,33 @@ V2_SMALL_MODEL = Model(
     },
     kwargs={"token": True},  # You can also configure with your token.
 )
+
+# Accuknox multilingual prompt-injection detector, fine-tuned from
+# microsoft/mdeberta-v3-base. Private repo, so loading needs an HF token (set
+# HF_TOKEN; token=True picks it up). Single-label softmax (0=BENIGN, 1=INJECTION).
+# Replaces the ProtectAI v2 model, which had a ~100% false-positive rate on
+# multilingual / benign instruction-shaped traffic. No ONNX export published.
+MDEBERTA_MODEL = Model(
+    path="Accuknoxtechnologies/mdeberta-prompt-injection",
+    revision="e13dce07f78dfb0e2d61dca58802314a343d4504",
+    pipeline_kwargs={
+        "return_token_type_ids": False,
+        "max_length": 512,
+        "truncation": True,
+    },
+    tokenizer_kwargs={
+        "token": True,
+        # The repo's tokenizer_config.json serialises `extra_special_tokens` as a
+        # list, but transformers expects a dict (it calls .keys()), which crashes
+        # DebertaV2TokenizerFast on load. Override with an empty dict: these are
+        # unused T5-style <extra_id_*> sentinels, irrelevant to classification and
+        # still present in the vocab via tokenizer.json.
+        "extra_special_tokens": {},
+    },
+    kwargs={"token": True},
+)
+
+DEFAULT_MODEL = MDEBERTA_MODEL
 
 
 class MatchType(Enum):
@@ -126,7 +157,7 @@ class PromptInjection(Scanner):
         self,
         *,
         model: Model | None = None,
-        threshold: float = 0.92,
+        threshold: float = 0.5,
         match_type: MatchType | str = MatchType.FULL,
         use_onnx: bool = False,
     ) -> None:
@@ -134,8 +165,10 @@ class PromptInjection(Scanner):
         Initializes PromptInjection with a threshold.
 
         Parameters:
-            model (Model, optional): Chosen model to classify prompt. Default is Laiyer's one.
-            threshold (float): Threshold for the injection score. Default is 0.9.
+            model (Model, optional): Chosen model to classify prompt. Defaults to
+                the Accuknox multilingual mDeBERTa detector.
+            threshold (float): Threshold for the injection score. Default is 0.5,
+                matching the default model's recommended operating point.
             match_type (MatchType): Whether to match the full text or individual sentences. Default is MatchType.FULL.
             use_onnx (bool): Whether to use ONNX for inference. Defaults to False.
 
@@ -143,7 +176,7 @@ class PromptInjection(Scanner):
             ValueError: If non-existent models were provided.
         """
         if model is None:
-            model = V2_MODEL
+            model = DEFAULT_MODEL
 
         if isinstance(match_type, str):
             match_type = MatchType(match_type)
@@ -166,12 +199,34 @@ class PromptInjection(Scanner):
         match_type.set_tokenizer(tf_tokenizer)
         self._match_type = match_type
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+        # Built lazily on the first analyze_spans() call so captum is only
+        # required when span attribution is actually used.
+        self._span_detector: SpanDetector | None = None
+
+    def scan(
+        self,
+        prompt: str,
+        threshold: float | None = None,
+        match_type: MatchType | None = None,
+    ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
+        if threshold is None:
+            threshold = self._threshold
+        if match_type is None:
+            match_type = self._match_type
+
+        # Chunk long inputs so nothing past the model's 512-token window is
+        # silently truncated; score every chunk and keep the max.
+        inputs = []
+        for text in match_type.get_inputs(prompt):
+            inputs.extend(split_text_to_token_chunks(self._pipeline.tokenizer, text))
+        if not inputs:
+            return prompt, True, -1.0
+
         highest_score = 0.0
-        results_all = self._pipeline(self._match_type.get_inputs(prompt))
+        results_all = self._pipeline(inputs)
         for result in results_all:
             injection_score = round(
                 (result["score"] if result["label"] == "INJECTION" else 1 - result["score"]),
@@ -181,15 +236,40 @@ class PromptInjection(Scanner):
             if injection_score > highest_score:
                 highest_score = injection_score
 
-            if injection_score > self._threshold:
+            if injection_score > threshold:
                 LOGGER.warning("Detected prompt injection", injection_score=injection_score)
 
                 return (
                     prompt,
                     False,
-                    calculate_risk_score(injection_score, self._threshold),
+                    calculate_risk_score(injection_score, threshold),
                 )
 
         LOGGER.debug("No prompt injection detected", highest_score=highest_score)
 
-        return prompt, True, calculate_risk_score(highest_score, self._threshold)
+        return prompt, True, calculate_risk_score(highest_score, threshold)
+
+    def analyze_spans(self, prompt: str) -> list[dict]:
+        """Return the character spans of the prompt that drive the INJECTION class.
+
+        Meant to be called only after scan() has flagged the prompt (e.g. to
+        explain a violation), since it runs an Integrated Gradients pass. The
+        model is single-label softmax, so the detector attributes the INJECTION
+        class directly.
+
+        Returns a list of {"text", "score", "start", "end"} dicts.
+        """
+        if prompt.strip() == "":
+            return []
+
+        if self._span_detector is None:
+            model = self._pipeline.model
+            target_class = model.config.label2id.get("INJECTION", 1)
+            self._span_detector = SpanDetector(
+                model=model,
+                tokenizer=self._pipeline.tokenizer,
+                target_class=target_class,
+                classify_threshold=self._threshold,
+            )
+
+        return self._span_detector.detect_as_dicts(prompt)

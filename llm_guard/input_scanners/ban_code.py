@@ -1,38 +1,38 @@
 from __future__ import annotations
 
-import re
-
 from llm_guard.model import Model
 from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classification, pipeline
-from llm_guard.util import calculate_risk_score, get_logger, remove_markdown
+from llm_guard.util import (
+    calculate_risk_score,
+    get_logger,
+    split_text_to_token_chunks,
+)
 
 from .base import Scanner
+from .code import CODE_LANG_ENCODER_V1
+from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
+# Legacy binary CODE/NL classifier (labels 0=CODE, 1=NL). Kept for backward
+# compatibility; pass it explicitly via model= to use it instead of the default
+# encoder. No ONNX export published.
 MODEL_SM = Model(
-    path="vishnun/codenlbert-sm",
-    revision="caa3d167fd262c76c7da23cd72c1d24cfdcafd0f",
-    onnx_path="protectai/vishnun-codenlbert-sm-onnx",
-    onnx_revision="2b1d298410bd98832e41e3da82e20f6d8dff1bc7",
+    path="Accuknoxtechnologies/codenl-codebert-banCode",
+    revision="c94bc0557860ec2ae9d5786dab29080987ba2abe",
     pipeline_kwargs={
-        "max_length": 128,
+        "max_length": 512,
         "truncation": True,
-        "return_token_type_ids": True,
+        "return_token_type_ids": False,
     },
+    tokenizer_kwargs={"token": True},
+    kwargs={"token": True},
 )
 
-MODEL_TINY = Model(
-    path="vishnun/codenlbert-tiny",
-    revision="2caf5a621b29c50038ee081479a82f192e9a5e69",
-    onnx_path="protectai/vishnun-codenlbert-tiny-onnx",
-    onnx_revision="84148cb4b3f08fe44705e2d8ed81505450ae8abd",
-    pipeline_kwargs={
-        "max_length": 128,
-        "truncation": True,
-        "return_token_type_ids": True,
-    },
-)
+# Default: the shared Accuknox multi-label code-language encoder. It emits an
+# independent sigmoid per programming language; any language above the threshold
+# means code is present, so the prompt is blocked.
+DEFAULT_MODEL = CODE_LANG_ENCODER_V1
 
 
 class BanCode(Scanner):
@@ -44,21 +44,23 @@ class BanCode(Scanner):
         self,
         *,
         model: Model | None = None,
-        threshold: float = 0.97,
+        threshold: float = 0.5,
         use_onnx: bool = False,
     ) -> None:
         """
         Initializes the BanCode scanner.
 
         Parameters:
-           model (Model, optional): The model object.
-           threshold (float): The probability threshold. Default is 0.97.
+           model (Model, optional): The model object. Defaults to the multi-label
+               code-language encoder.
+           threshold (float): The probability threshold. Default is 0.5, matching
+               the default encoder's recommended operating point.
            use_onnx (bool): Whether to use ONNX instead of PyTorch for inference.
         """
 
         self._threshold = threshold
         if model is None:
-            model = MODEL_SM
+            model = DEFAULT_MODEL
 
         tf_tokenizer, tf_model = get_tokenizer_and_model_for_classification(
             model=model,
@@ -72,37 +74,71 @@ class BanCode(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+        # Built lazily on the first analyze_spans() call so captum is only
+        # required when span attribution is actually used.
+        self._span_detector: SpanDetector | None = None
+
+    def scan(self, prompt: str, threshold: float | None = None) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        # Hack: Improve accuracy
-        new_prompt = remove_markdown(prompt)  # Remove markdown
-        new_prompt = re.sub(r"\d+\.\s+|[-*•]\s+", "", new_prompt)  # Remove list markers
-        new_prompt = re.sub(r"\d+", "", new_prompt)  # Remove numbers
-        new_prompt = re.sub(r'\.(?!\d)(?=[\s\'"“”‘’)\]}]|$)', "", new_prompt)  # Remove periods
+        if threshold is None:
+            threshold = self._threshold
 
-        result = self._classifier(new_prompt)[0]
-        score = round(
-            result["score"] if result["label"] in "CODE" else 1 - result["score"],
-            2,
-        )
+        # Chunk long inputs so nothing past the model's 512-token window is
+        # silently truncated; score every chunk and keep the max.
+        chunks = split_text_to_token_chunks(self._classifier.tokenizer, prompt)
+        if not chunks:
+            return prompt, True, -1.0
 
-        if score > self._threshold:
+        score = 0.0
+        for preds in self._classifier(chunks):
+            # Multi-label model: `preds` is a list of {label, score} across every
+            # language. "Code present" = the strongest language signal in the
+            # chunk. (A single-label model returns one dict; guard for that.)
+            if isinstance(preds, dict):
+                preds = [preds]
+            chunk_score = round(max(pred["score"] for pred in preds), 2)
+            score = max(score, chunk_score)
+
+        if score > threshold:
             LOGGER.warning(
                 "Detected code in the text",
                 score=score,
-                threshold=self._threshold,
-                text=new_prompt,
+                threshold=threshold,
             )
 
-            return prompt, False, calculate_risk_score(score, self._threshold)
+            return prompt, False, calculate_risk_score(score, threshold)
 
         LOGGER.debug(
             "No code detected in the text",
             score=score,
-            threshold=self._threshold,
-            text=new_prompt,
+            threshold=threshold,
         )
 
-        return prompt, True, calculate_risk_score(score, self._threshold)
+        return prompt, True, calculate_risk_score(score, threshold)
+
+    def analyze_spans(self, prompt: str) -> list[dict]:
+        """Return the character spans of the prompt that drive the code detection.
+
+        Meant to be called only after scan() has flagged the prompt (e.g. to
+        explain a violation), since it runs an Integrated Gradients pass. Any code
+        language counts as a violation, so the detector attributes the
+        highest-scoring language per chunk.
+
+        Returns a list of {"text", "score", "start", "end"} dicts.
+        """
+        if prompt.strip() == "":
+            return []
+
+        if self._span_detector is None:
+            model = self._classifier.model
+            self._span_detector = SpanDetector(
+                model=model,
+                tokenizer=self._classifier.tokenizer,
+                target_class=list(range(model.config.num_labels)),
+                multi_label=True,
+                classify_threshold=self._threshold,
+            )
+
+        return self._span_detector.detect_as_dicts(prompt)

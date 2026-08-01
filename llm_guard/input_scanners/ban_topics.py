@@ -135,25 +135,35 @@ class BanTopics(Scanner):
             **model.pipeline_kwargs,
         )
 
-    def scan(self, prompt: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        topics: list[str] | None = None,
+        threshold: float | None = None,
+    ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        output_model = self._classifier(prompt, self._topics, multi_label=False)
+        if topics is None:
+            topics = self._topics
+        if threshold is None:
+            threshold = self._threshold
+
+        output_model = self._classifier(prompt, topics, multi_label=False)
         label_score = dict(zip(output_model["labels"], output_model["scores"]))
 
         max_score = round(max(output_model["scores"]) if output_model["scores"] else 0, 2)
-        if max_score > self._threshold:
+        if max_score > threshold:
             LOGGER.warning(
                 "Topics detected for the prompt",
                 scores=label_score,
             )
 
-            return prompt, False, calculate_risk_score(max_score, self._threshold)
+            return prompt, False, calculate_risk_score(max_score, threshold)
 
         LOGGER.debug(
             "No banned topics detected",
             scores=label_score,
         )
 
-        return prompt, True, calculate_risk_score(max_score, self._threshold)
+        return prompt, True, calculate_risk_score(max_score, threshold)
