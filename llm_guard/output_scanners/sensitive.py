@@ -89,19 +89,30 @@ class Sensitive(Scanner):
         )
         self._anonymizer = AnonymizerEngine()
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        redact: bool | None = None,
+        threshold: float | None = None,
+    ) -> tuple[str, bool, float]:
         if output.strip() == "":
             return prompt, True, -1.0
+
+        if redact is None:
+            redact = self._redact
+        if threshold is None:
+            threshold = self._threshold
 
         analyzer_results = self._analyzer.analyze(
             text=Anonymize.remove_single_quotes(output),
             language="en",
             entities=self._entity_types,
-            score_threshold=self._threshold,
+            score_threshold=threshold,
         )
 
         if analyzer_results:
-            if self._redact:
+            if redact:
                 LOGGER.debug("Redacting sensitive entities")
                 result = self._anonymizer.anonymize(text=output, analyzer_results=analyzer_results)  # type: ignore
                 output = result.text
@@ -110,7 +121,7 @@ class Sensitive(Scanner):
                 max(analyzer_result.score for analyzer_result in analyzer_results), 2
             )
             LOGGER.warning("Found sensitive data in the output", results=analyzer_results)
-            return output, False, calculate_risk_score(risk_score, self._threshold)
+            return output, False, calculate_risk_score(risk_score, threshold)
 
         LOGGER.debug("No sensitive data found in the output")
         return output, True, -1.0

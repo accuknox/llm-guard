@@ -33,5 +33,10 @@ class BanCode(Scanner):
             use_onnx=use_onnx,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        threshold: float | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(output, threshold=threshold)

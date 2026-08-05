@@ -45,5 +45,17 @@ class Code(Scanner):
             use_onnx=use_onnx,
         )
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        languages: list[str] | None = None,
+        is_blocked: bool | None = None,
+        threshold: float | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(
+            output,
+            languages=languages,
+            is_blocked=is_blocked,
+            threshold=threshold,
+        )
