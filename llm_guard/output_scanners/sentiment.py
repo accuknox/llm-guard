@@ -23,5 +23,10 @@ class Sentiment(Scanner):
 
         self._scanner = InputSentiment(threshold=threshold, lexicon=lexicon)
 
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        return self._scanner.scan(output)
+    def scan(
+        self,
+        prompt: str,
+        output: str,
+        threshold: float | None = None,
+    ) -> tuple[str, bool, float]:
+        return self._scanner.scan(output, threshold=threshold)
