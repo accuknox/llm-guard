@@ -8,7 +8,7 @@ from opentelemetry import metrics
 
 from llm_guard import input_scanners, output_scanners
 from llm_guard.input_scanners.anonymize_helpers import DEBERTA_AI4PRIVACY_v2_CONF
-from llm_guard.input_scanners.ban_code import DEFAULT_MODEL as BAN_CODE_MODEL
+from llm_guard.input_scanners.ban_code import MODEL_SM as BAN_CODE_MODEL
 from llm_guard.input_scanners.ban_competitors import MODEL_V1 as BAN_COMPETITORS_MODEL
 from llm_guard.input_scanners.ban_topics import MODEL_DEBERTA_BASE_V2 as BAN_TOPICS_MODEL
 from llm_guard.input_scanners.base import Scanner as InputScanner
