@@ -1,22 +1,25 @@
 from __future__ import annotations
 
+import re
+
 from llm_guard.model import Model
 from llm_guard.transformers_helpers import get_tokenizer_and_model_for_classification, pipeline
 from llm_guard.util import (
     calculate_risk_score,
     get_logger,
+    remove_markdown,
     split_text_to_token_chunks,
 )
 
 from .base import Scanner
-from .code import CODE_LANG_ENCODER_V1
 from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
-# Legacy binary CODE/NL classifier (labels 0=CODE, 1=NL). Kept for backward
-# compatibility; pass it explicitly via model= to use it instead of the default
-# encoder. No ONNX export published.
+# Accuknox fine-tuned CodeBERT (RoBERTa) classifier. Private repo, so loading
+# requires an HF token (set HF_TOKEN in the environment; token=True picks it up).
+# Labels: 0=CODE, 1=NL. No ONNX export published, so use_onnx would fall back to
+# an on-the-fly export.
 MODEL_SM = Model(
     path="Accuknoxtechnologies/codenl-codebert-banCode",
     revision="c94bc0557860ec2ae9d5786dab29080987ba2abe",
@@ -29,11 +32,6 @@ MODEL_SM = Model(
     kwargs={"token": True},
 )
 
-# Default: the shared Accuknox multi-label code-language encoder. It emits an
-# independent sigmoid per programming language; any language above the threshold
-# means code is present, so the prompt is blocked.
-DEFAULT_MODEL = CODE_LANG_ENCODER_V1
-
 
 class BanCode(Scanner):
     """
@@ -44,23 +42,21 @@ class BanCode(Scanner):
         self,
         *,
         model: Model | None = None,
-        threshold: float = 0.5,
+        threshold: float = 0.97,
         use_onnx: bool = False,
     ) -> None:
         """
         Initializes the BanCode scanner.
 
         Parameters:
-           model (Model, optional): The model object. Defaults to the multi-label
-               code-language encoder.
-           threshold (float): The probability threshold. Default is 0.5, matching
-               the default encoder's recommended operating point.
+           model (Model, optional): The model object.
+           threshold (float): The probability threshold. Default is 0.97.
            use_onnx (bool): Whether to use ONNX instead of PyTorch for inference.
         """
 
         self._threshold = threshold
         if model is None:
-            model = DEFAULT_MODEL
+            model = MODEL_SM
 
         tf_tokenizer, tf_model = get_tokenizer_and_model_for_classification(
             model=model,
@@ -85,20 +81,24 @@ class BanCode(Scanner):
         if threshold is None:
             threshold = self._threshold
 
+        # Hack: Improve accuracy
+        new_prompt = remove_markdown(prompt)  # Remove markdown
+        new_prompt = re.sub(r"\d+\.\s+|[-*•]\s+", "", new_prompt)  # Remove list markers
+        new_prompt = re.sub(r"\d+", "", new_prompt)  # Remove numbers
+        new_prompt = re.sub(r'\.(?!\d)(?=[\s\'"“”‘’)\]}]|$)', "", new_prompt)  # Remove periods
+
         # Chunk long inputs so nothing past the model's 512-token window is
         # silently truncated; score every chunk and keep the max.
-        chunks = split_text_to_token_chunks(self._classifier.tokenizer, prompt)
+        chunks = split_text_to_token_chunks(self._classifier.tokenizer, new_prompt)
         if not chunks:
             return prompt, True, -1.0
 
         score = 0.0
-        for preds in self._classifier(chunks):
-            # Multi-label model: `preds` is a list of {label, score} across every
-            # language. "Code present" = the strongest language signal in the
-            # chunk. (A single-label model returns one dict; guard for that.)
-            if isinstance(preds, dict):
-                preds = [preds]
-            chunk_score = round(max(pred["score"] for pred in preds), 2)
+        for result in self._classifier(chunks):
+            chunk_score = round(
+                result["score"] if result["label"] in "CODE" else 1 - result["score"],
+                2,
+            )
             score = max(score, chunk_score)
 
         if score > threshold:
@@ -106,6 +106,7 @@ class BanCode(Scanner):
                 "Detected code in the text",
                 score=score,
                 threshold=threshold,
+                text=new_prompt,
             )
 
             return prompt, False, calculate_risk_score(score, threshold)
@@ -114,17 +115,18 @@ class BanCode(Scanner):
             "No code detected in the text",
             score=score,
             threshold=threshold,
+            text=new_prompt,
         )
 
         return prompt, True, calculate_risk_score(score, threshold)
 
     def analyze_spans(self, prompt: str) -> list[dict]:
-        """Return the character spans of the prompt that drive the code detection.
+        """Return the character spans of the prompt that drive the CODE class.
 
         Meant to be called only after scan() has flagged the prompt (e.g. to
-        explain a violation), since it runs an Integrated Gradients pass. Any code
-        language counts as a violation, so the detector attributes the
-        highest-scoring language per chunk.
+        explain a violation), since it runs an Integrated Gradients pass. Note:
+        attribution runs on the original prompt (not the markdown/number-stripped
+        text scan() uses) so offsets map back to the caller's input.
 
         Returns a list of {"text", "score", "start", "end"} dicts.
         """
@@ -133,11 +135,11 @@ class BanCode(Scanner):
 
         if self._span_detector is None:
             model = self._classifier.model
+            target_class = model.config.label2id.get("CODE", 0)
             self._span_detector = SpanDetector(
                 model=model,
                 tokenizer=self._classifier.tokenizer,
-                target_class=list(range(model.config.num_labels)),
-                multi_label=True,
+                target_class=target_class,
                 classify_threshold=self._threshold,
             )
 

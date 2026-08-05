@@ -12,9 +12,7 @@ from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
-# Legacy single-label softmax classifier. Kept for backward compatibility; pass
-# it explicitly via model= to use it instead of the default encoder.
-PHILOMATH_MODEL = Model(
+DEFAULT_MODEL = Model(
     path="philomath-1209/programming-language-identification",
     revision="9090d38e7333a2c6ff00f154ab981a549842c20f",
     onnx_path="philomath-1209/programming-language-identification",
@@ -28,55 +26,32 @@ PHILOMATH_MODEL = Model(
     },
 )
 
-# Accuknox multi-label code-language encoder, fine-tuned from microsoft/codebert-base.
-# Private repo, so loading needs an HF token (set HF_TOKEN; token=True picks it up).
-# problem_type=multi_label_classification => the pipeline applies an independent
-# sigmoid per language, and top_k=None returns every language with its own score.
-# No ONNX export published, so use_onnx would fall back to an on-the-fly export.
-CODE_LANG_ENCODER_V1 = Model(
-    path="Accuknoxtechnologies/CodeLanguage-codebert-base-Encoder-v1",
-    revision="efea2d9c77eba33a9ba1718c6d027ce1bd1a2f8c",
-    pipeline_kwargs={
-        "top_k": None,
-        "function_to_apply": "sigmoid",
-        "return_token_type_ids": False,
-        "max_length": 512,
-        "truncation": True,
-    },
-    tokenizer_kwargs={"token": True},
-    kwargs={"token": True},
-)
-
-DEFAULT_MODEL = CODE_LANG_ENCODER_V1
-
-# The 25 languages the default model identifies (its config.id2label). Validation
-# in __init__ runs against the loaded model's own labels, so a custom model with a
-# different label set is supported automatically; this list is informational.
 SUPPORTED_LANGUAGES = [
-    "Python",
-    "JavaScript",
-    "Java",
+    "ARM Assembly",
+    "AppleScript",
     "C",
-    "C++",
     "C#",
+    "C++",
+    "COBOL",
+    "Erlang",
+    "Fortran",
     "Go",
-    "Rust",
+    "Java",
+    "JavaScript",
     "Kotlin",
-    "Swift",
-    "Ruby",
-    "R",
-    "Scala",
-    "Perl",
     "Lua",
-    "Bash",
+    "Mathematica/Wolfram Language",
+    "PHP",
+    "Pascal",
+    "Perl",
     "PowerShell",
-    "Batch",
-    "SQL",
-    "Dockerfile",
-    "YAML",
-    "Makefile",
-    "Terraform",
-    "AWK",
+    "Python",
+    "R",
+    "Ruby",
+    "Rust",
+    "Scala",
+    "Swift",
+    "Visual Basic .NET",
     "jq",
 ]
 
@@ -111,6 +86,9 @@ class Code(Scanner):
         Raises:
             LLMGuardValidationError: If the languages are not a subset of SUPPORTED_LANGUAGES.
         """
+        if not set(languages).issubset(set(SUPPORTED_LANGUAGES)):
+            raise LLMGuardValidationError(f"Languages must be a subset of {SUPPORTED_LANGUAGES}")
+
         self._languages = languages
         self._is_blocked = is_blocked
         self._threshold = threshold
@@ -129,13 +107,6 @@ class Code(Scanner):
             tokenizer=tf_tokenizer,
             **model.pipeline_kwargs,
         )
-
-        # Validate the requested languages against the loaded model's own labels,
-        # so any model (the default encoder or a custom one) with a different label
-        # set works without editing a hardcoded list.
-        supported = set(self._pipeline.model.config.id2label.values())
-        if not set(languages).issubset(supported):
-            raise LLMGuardValidationError(f"Languages must be a subset of {sorted(supported)}")
 
         self._fenced_code_regex = re.compile(r"```(?:[a-zA-Z0-9]*\n)?(.*?)```", re.DOTALL)
         self._inline_code_regex = re.compile(r"`(.*?)`")
@@ -236,8 +207,8 @@ class Code(Scanner):
 
         Meant to be called only after scan() has flagged the prompt (e.g. to
         explain a violation), since it runs an Integrated Gradients pass. The
-        default encoder is multi-label (independent sigmoid per language), so the
-        detector attributes the highest-scoring candidate language per chunk.
+        model is single-label softmax, so the detector attributes the
+        highest-scoring candidate language per chunk.
 
         The candidate languages depend on the policy: in block mode they are the
         configured (banned) languages; in allow mode they are every other language
@@ -263,7 +234,6 @@ class Code(Scanner):
                 model=model,
                 tokenizer=self._pipeline.tokenizer,
                 target_class=targets,
-                multi_label=True,
                 classify_threshold=self._threshold,
             )
 
