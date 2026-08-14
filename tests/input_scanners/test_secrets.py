@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 
 from llm_guard.input_scanners.secrets import Secrets
@@ -52,3 +54,32 @@ def test_scan(prompt, expected_prompt, expected_valid, expected_score):
     assert sanitized_prompt == expected_prompt
     assert valid == expected_valid
     assert score == expected_score
+
+
+def test_scan_is_thread_safe():
+    """Concurrent scans must not lose detections.
+
+    detect_secrets keeps its plugin configuration in a process-global singleton
+    and transient_settings() swaps it in and out around every scan, so parallel
+    scans corrupt each other's plugin set: the scan either raises KeyError on a
+    plugin name, or silently reports the text as safe. Both are unacceptable in
+    a security scanner, and the second fails open. Secrets.scan serializes entry
+    into that context; without it this test loses detections and often raises.
+    """
+    scanner = Secrets()
+    prompt_with_secret = "My github token is: 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"  # gitleaks:allow
+
+    def scan(index):
+        has_secret = bool(index % 2)
+        prompt = prompt_with_secret if has_secret else "Just a simple prompt"
+        _, valid, _ = scanner.scan(prompt)
+        return has_secret, valid
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(scan, range(60)))
+
+    missed = [has_secret for has_secret, valid in results if has_secret and valid]
+    false_positives = [valid for has_secret, valid in results if not has_secret and not valid]
+
+    assert not missed, f"{len(missed)} of 30 secrets missed under concurrency"
+    assert not false_positives, f"{len(false_positives)} of 30 clean prompts flagged"

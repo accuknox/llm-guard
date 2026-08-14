@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+import threading
 
 from detect_secrets.core.secrets_collection import SecretsCollection
 from detect_secrets.settings import transient_settings
@@ -13,6 +14,14 @@ from llm_guard.util import get_logger
 from .base import Scanner
 
 LOGGER = get_logger()
+
+# detect_secrets keeps its plugin configuration in a process-global singleton
+# (settings.get_settings is @lru_cache(maxsize=1)), and transient_settings()
+# swaps that global in and out around every scan. Concurrent scans therefore
+# corrupt each other's plugin set: the scan either raises KeyError on a plugin
+# name, or -- far worse for a security scanner -- silently finds nothing and
+# reports the text as safe. Serialize entry so the swap is never concurrent.
+_settings_lock = threading.Lock()
 
 _custom_plugins_path = "file://" + os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "secrets_plugins"
@@ -470,7 +479,7 @@ class Secrets(Scanner):
         temp_file.write(prompt.encode("utf-8"))
         temp_file.close()
 
-        with transient_settings(self._detect_secrets_config):
+        with _settings_lock, transient_settings(self._detect_secrets_config):
             secrets.scan_file(str(temp_file.name))
 
         secret_types = []
@@ -526,7 +535,7 @@ class Secrets(Scanner):
         temp_file.write(prompt.encode("utf-8"))
         temp_file.close()
         try:
-            with transient_settings(self._detect_secrets_config):
+            with _settings_lock, transient_settings(self._detect_secrets_config):
                 secrets.scan_file(str(temp_file.name))
         finally:
             os.remove(temp_file.name)
