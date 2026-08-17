@@ -15,7 +15,7 @@ class BanCode(Scanner):
         self,
         *,
         model: Model | None = None,
-        threshold: float = 0.9,
+        threshold: float = 0.83,
         use_onnx: bool = False,
     ) -> None:
         """
@@ -24,6 +24,7 @@ class BanCode(Scanner):
         Parameters:
             model: The model to use for scanning.
             threshold: The threshold for the model output to consider a code snippet.
+                Default is 0.83, the default encoder's recommended global operating point.
             use_onnx: Whether to use the ONNX model for scanning.
         """
 

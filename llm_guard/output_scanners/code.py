@@ -20,7 +20,7 @@ class Code(Scanner):
         *,
         model: Model | None = None,
         is_blocked: bool = True,
-        threshold: float = 0.5,
+        threshold: float = 0.83,
         use_onnx: bool = False,
     ) -> None:
         """
@@ -30,7 +30,8 @@ class Code(Scanner):
             model: The model to use for language detection.
             languages: The list of programming languages to allow or deny.
             is_blocked: Whether the languages are blocked or allowed. Default is True.
-            threshold: The threshold for the model output to be considered valid. Default is 0.5.
+            threshold: The threshold for the model output to be considered valid.
+                Default is 0.83, the default encoder's recommended global operating point.
             use_onnx: Whether to use ONNX for inference. Default is False.
 
         Raises:
