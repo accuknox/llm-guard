@@ -12,7 +12,9 @@ from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
-DEFAULT_MODEL = Model(
+# Legacy single-label softmax classifier. Kept for backward compatibility; pass
+# it explicitly via model= to use it instead of the default encoder.
+PHILOMATH_MODEL = Model(
     path="philomath-1209/programming-language-identification",
     revision="9090d38e7333a2c6ff00f154ab981a549842c20f",
     onnx_path="philomath-1209/programming-language-identification",
@@ -26,32 +28,56 @@ DEFAULT_MODEL = Model(
     },
 )
 
+# Accuknox multi-label code-language encoder, fine-tuned from microsoft/codebert-base.
+# Private repo, so loading needs an HF token (set HF_TOKEN; token=True picks it up).
+# problem_type=multi_label_classification => the pipeline applies an independent
+# sigmoid per language, and top_k=None returns every language with its own score.
+# Recommended operating point is a global threshold of 0.83 (see the model's
+# thresholds.json). An int8 ONNX export lives under onnx-int8/, but no plain ONNX
+# export is published, so use_onnx would fall back to an on-the-fly export.
+CODE_IDENTIFICATION_ENCODER_V1 = Model(
+    path="Accuknoxtechnologies/Code-Identification-Encoder-v1",
+    revision="2104a96e1a5cfc1b98eb8fea759d8560e331b097",
+    pipeline_kwargs={
+        "top_k": None,
+        "function_to_apply": "sigmoid",
+        "return_token_type_ids": False,
+        "max_length": 512,
+        "truncation": True,
+    },
+    tokenizer_kwargs={"token": True},
+    kwargs={"token": True},
+)
+
+DEFAULT_MODEL = CODE_IDENTIFICATION_ENCODER_V1
+
+# The languages the default model identifies (its config.id2label). Validation in
+# __init__ runs against the loaded model's own labels, so a custom model with a
+# different label set is supported automatically; this list is informational.
 SUPPORTED_LANGUAGES = [
-    "ARM Assembly",
-    "AppleScript",
+    "AWK",
+    "Bash",
+    "Batch",
     "C",
     "C#",
     "C++",
-    "COBOL",
-    "Erlang",
-    "Fortran",
+    "Dockerfile",
     "Go",
     "Java",
     "JavaScript",
     "Kotlin",
     "Lua",
-    "Mathematica/Wolfram Language",
-    "PHP",
-    "Pascal",
+    "Makefile",
     "Perl",
     "PowerShell",
     "Python",
     "R",
     "Ruby",
     "Rust",
+    "SQL",
     "Scala",
     "Swift",
-    "Visual Basic .NET",
+    "Terraform",
     "jq",
 ]
 
@@ -69,8 +95,8 @@ class Code(Scanner):
         languages: list[str],
         *,
         model: Model | None = None,
-        is_blocked: bool = True,
-        threshold: float = 0.5,
+        is_blocked: bool = False,
+        threshold: float = 0.83,
         use_onnx: bool = False,
     ) -> None:
         """
@@ -80,15 +106,14 @@ class Code(Scanner):
             model: The model to use for language detection.
             languages: The list of programming languages to allow or deny.
             is_blocked: Whether the languages are blocked or allowed. Default is True.
-            threshold: The threshold for the risk score. Default is 0.5.
+            threshold: The threshold for the risk score. Default is 0.83, the
+                default encoder's recommended global operating point.
             use_onnx: Whether to use ONNX for inference. Default is False.
 
         Raises:
-            LLMGuardValidationError: If the languages are not a subset of SUPPORTED_LANGUAGES.
+            LLMGuardValidationError: If the languages are not a subset of the
+                loaded model's own labels.
         """
-        if not set(languages).issubset(set(SUPPORTED_LANGUAGES)):
-            raise LLMGuardValidationError(f"Languages must be a subset of {SUPPORTED_LANGUAGES}")
-
         self._languages = languages
         self._is_blocked = is_blocked
         self._threshold = threshold
@@ -107,6 +132,13 @@ class Code(Scanner):
             tokenizer=tf_tokenizer,
             **model.pipeline_kwargs,
         )
+
+        # Validate the requested languages against the loaded model's own labels,
+        # so any model (the default encoder or a custom one) with a different label
+        # set works without editing a hardcoded list.
+        supported = set(self._pipeline.model.config.id2label.values())
+        if not set(languages).issubset(supported):
+            raise LLMGuardValidationError(f"Languages must be a subset of {sorted(supported)}")
 
         self._fenced_code_regex = re.compile(r"```(?:[a-zA-Z0-9]*\n)?(.*?)```", re.DOTALL)
         self._inline_code_regex = re.compile(r"`(.*?)`")
@@ -164,8 +196,19 @@ class Code(Scanner):
         if not chunks:
             return prompt, True, -1.0
 
-        # Only check when the code is detected
+        # The default encoder is multi-label, so a single chunk can report several
+        # languages, each with its own score. Look at every language the model
+        # detects above the threshold and keep the strongest violation:
+        #   - allow mode (is_blocked=False): only the configured languages are
+        #     allowed through; any other detected code language is a violation.
+        #   - block mode (is_blocked=True): the configured languages are the ones
+        #     that are blocked; every other language is allowed.
+        # Text with no code (no language above the threshold) has no violation and
+        # passes in either mode.
         results = self._pipeline(chunks)
+        allowed = set(languages_config)
+        violating_language: str | None = None
+        violating_score = 0.0
         for code_block, results_languages in zip(chunks, results):
             LOGGER.debug(
                 "Detected languages in the code",
@@ -173,42 +216,38 @@ class Code(Scanner):
                 code_block=code_block,
             )
 
+            if isinstance(results_languages, dict):
+                results_languages = [results_languages]
+
             for language in results_languages:
                 score = round(language["score"], 2)
-
-                if score < threshold or language["label"] not in languages_config:
+                if score < threshold:
                     continue
 
-                if is_blocked:
-                    LOGGER.warning(
-                        "Language is not allowed",
-                        language_name=language["label"],
-                        score=score,
-                    )
-                    return prompt, False, calculate_risk_score(score, threshold)
+                label = language["label"]
+                is_violation = (label in allowed) if is_blocked else (label not in allowed)
+                if is_violation and score > violating_score:
+                    violating_language = label
+                    violating_score = score
 
-                if not is_blocked:
-                    LOGGER.debug(
-                        "Language is allowed",
-                        language_name=language["label"],
-                        score=score,
-                    )
-                    return prompt, True, calculate_risk_score(score, threshold)
+        if violating_language is not None:
+            LOGGER.warning(
+                "Language is not allowed",
+                language_name=violating_language,
+                score=violating_score,
+            )
+            return prompt, False, calculate_risk_score(violating_score, threshold)
 
-        if is_blocked:
-            LOGGER.debug("No blocked languages detected")
-            return prompt, True, -1.0
-
-        LOGGER.warning("No allowed languages detected")
-        return prompt, False, 1.0
+        LOGGER.debug("No disallowed languages detected")
+        return prompt, True, -1.0
 
     def analyze_spans(self, prompt: str) -> list[dict]:
         """Return the character spans of the prompt that drive the violation.
 
         Meant to be called only after scan() has flagged the prompt (e.g. to
         explain a violation), since it runs an Integrated Gradients pass. The
-        model is single-label softmax, so the detector attributes the
-        highest-scoring candidate language per chunk.
+        default encoder is multi-label (independent sigmoid per language), so the
+        detector attributes the highest-scoring candidate language per chunk.
 
         The candidate languages depend on the policy: in block mode they are the
         configured (banned) languages; in allow mode they are every other language
@@ -234,6 +273,7 @@ class Code(Scanner):
                 model=model,
                 tokenizer=self._pipeline.tokenizer,
                 target_class=targets,
+                multi_label=True,
                 classify_threshold=self._threshold,
             )
 
