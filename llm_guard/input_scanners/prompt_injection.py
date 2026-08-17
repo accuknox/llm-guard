@@ -99,7 +99,27 @@ MDEBERTA_MODEL = Model(
     kwargs={"token": True},
 )
 
-DEFAULT_MODEL = MDEBERTA_MODEL
+# Accuknox prompt-injection detector, fine-tuned from Alibaba-NLP/gte-multilingual-base
+# (model_type "new" / NewForSequenceClassification). The architecture ships its modeling
+# code via auto_map (Alibaba-NLP/new-impl), so loading REQUIRES trust_remote_code=True.
+# Private repo, so loading also needs an HF token (set HF_TOKEN; token=True picks it up).
+# Single-label softmax (0=BENIGN, 1=INJECTION) — same label schema as the mDeBERTa model,
+# so scan() is unchanged. thresholds.json: scanner_default_threshold 0.5, chosen_threshold
+# 0.98 (target FPR 0.01). No ONNX export is published, so use_onnx would fall back to an
+# on-the-fly export (unsupported for this custom architecture).
+PROMPT_INJECTION_ENCODER_V1 = Model(
+    path="Accuknoxtechnologies/Prompt-Injection-Encoder-v1",
+    revision="53dce8a1bf718eb8cdddccb06770f14b3f431203",
+    pipeline_kwargs={
+        "return_token_type_ids": False,
+        "max_length": 512,
+        "truncation": True,
+    },
+    tokenizer_kwargs={"token": True},
+    kwargs={"token": True, "trust_remote_code": True},
+)
+
+DEFAULT_MODEL = PROMPT_INJECTION_ENCODER_V1
 
 
 class MatchType(Enum):
@@ -166,7 +186,7 @@ class PromptInjection(Scanner):
 
         Parameters:
             model (Model, optional): Chosen model to classify prompt. Defaults to
-                the Accuknox multilingual mDeBERTa detector.
+                the Accuknox Prompt-Injection-Encoder-v1 (gte-multilingual) detector.
             threshold (float): Threshold for the injection score. Default is 0.5,
                 matching the default model's recommended operating point.
             match_type (MatchType): Whether to match the full text or individual sentences. Default is MatchType.FULL.
