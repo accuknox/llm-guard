@@ -95,7 +95,7 @@ class Code(Scanner):
         languages: list[str],
         *,
         model: Model | None = None,
-        is_blocked: bool = True,
+        is_blocked: bool = False,
         threshold: float = 0.83,
         use_onnx: bool = False,
     ) -> None:
