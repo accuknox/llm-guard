@@ -196,8 +196,19 @@ class Code(Scanner):
         if not chunks:
             return prompt, True, -1.0
 
-        # Only check when the code is detected
+        # The default encoder is multi-label, so a single chunk can report several
+        # languages, each with its own score. Look at every language the model
+        # detects above the threshold and keep the strongest violation:
+        #   - allow mode (is_blocked=False): only the configured languages are
+        #     allowed through; any other detected code language is a violation.
+        #   - block mode (is_blocked=True): the configured languages are the ones
+        #     that are blocked; every other language is allowed.
+        # Text with no code (no language above the threshold) has no violation and
+        # passes in either mode.
         results = self._pipeline(chunks)
+        allowed = set(languages_config)
+        violating_language: str | None = None
+        violating_score = 0.0
         for code_block, results_languages in zip(chunks, results):
             LOGGER.debug(
                 "Detected languages in the code",
@@ -205,34 +216,30 @@ class Code(Scanner):
                 code_block=code_block,
             )
 
+            if isinstance(results_languages, dict):
+                results_languages = [results_languages]
+
             for language in results_languages:
                 score = round(language["score"], 2)
-
-                if score < threshold or language["label"] not in languages_config:
+                if score < threshold:
                     continue
 
-                if is_blocked:
-                    LOGGER.warning(
-                        "Language is not allowed",
-                        language_name=language["label"],
-                        score=score,
-                    )
-                    return prompt, False, calculate_risk_score(score, threshold)
+                label = language["label"]
+                is_violation = (label in allowed) if is_blocked else (label not in allowed)
+                if is_violation and score > violating_score:
+                    violating_language = label
+                    violating_score = score
 
-                if not is_blocked:
-                    LOGGER.debug(
-                        "Language is allowed",
-                        language_name=language["label"],
-                        score=score,
-                    )
-                    return prompt, True, calculate_risk_score(score, threshold)
+        if violating_language is not None:
+            LOGGER.warning(
+                "Language is not allowed",
+                language_name=violating_language,
+                score=violating_score,
+            )
+            return prompt, False, calculate_risk_score(violating_score, threshold)
 
-        if is_blocked:
-            LOGGER.debug("No blocked languages detected")
-            return prompt, True, -1.0
-
-        LOGGER.warning("No allowed languages detected")
-        return prompt, False, 1.0
+        LOGGER.debug("No disallowed languages detected")
+        return prompt, True, -1.0
 
     def analyze_spans(self, prompt: str) -> list[dict]:
         """Return the character spans of the prompt that drive the violation.
