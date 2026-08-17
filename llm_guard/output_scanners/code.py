@@ -19,7 +19,7 @@ class Code(Scanner):
         languages: list[str],
         *,
         model: Model | None = None,
-        is_blocked: bool = True,
+        is_blocked: bool = False,
         threshold: float = 0.83,
         use_onnx: bool = False,
     ) -> None:
@@ -29,7 +29,8 @@ class Code(Scanner):
         Parameters:
             model: The model to use for language detection.
             languages: The list of programming languages to allow or deny.
-            is_blocked: Whether the languages are blocked or allowed. Default is True.
+            is_blocked: Whether the languages are blocked or allowed. Default is False
+                (allow-list: only the given languages pass, every other code language is blocked).
             threshold: The threshold for the model output to be considered valid.
                 Default is 0.83, the default encoder's recommended global operating point.
             use_onnx: Whether to use ONNX for inference. Default is False.
