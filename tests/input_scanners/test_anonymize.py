@@ -233,6 +233,34 @@ Create a summarized version of his resume.""",
             True,
             -1.0,
         ),  # Exposed name
+        (
+            {"entity_types": ["IN_AADHAAR"]},
+            "My aadhaar number is 2341-2341-2346.",
+            "My aadhaar number is [REDACTED_IN_AADHAAR_1].",
+            False,
+            1.0,
+        ),  # Aadhaar number written with dashes
+        (
+            {"entity_types": ["IN_AADHAAR"]},
+            "My aadhaar number is 2341 2341 2346.",
+            "My aadhaar number is [REDACTED_IN_AADHAAR_1].",
+            False,
+            1.0,
+        ),  # Aadhaar number written with spaces
+        (
+            {"entity_types": ["IN_AADHAAR"]},
+            "My aadhaar number is 234123412346.",
+            "My aadhaar number is [REDACTED_IN_AADHAAR_1].",
+            False,
+            1.0,
+        ),  # Aadhaar number without separators
+        (
+            {"entity_types": ["IN_AADHAAR"]},
+            "Order id 1234-5678-9012 is pending.",
+            "Order id 1234-5678-9012 is pending.",
+            True,
+            -1.0,
+        ),  # 12 digits that fail Aadhaar validation
         ({}, "", "", True, -1.0),  # Empty prompt
     ],
 )

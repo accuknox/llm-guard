@@ -145,6 +145,8 @@ def get_analyzer(
 
     registry = RecognizerRegistry(supported_languages=supported_languages)
     registry.load_predefined_recognizers(nlp_engine=nlp_engine)
+    # Replaced in _add_recognizers by a version that also matches 4-4-4 grouping.
+    registry.remove_recognizer("InAadhaarRecognizer")
     registry = _add_recognizers(registry, regex_groups, custom_names, supported_languages)
     registry.add_recognizer(recognizer)
     registry.remove_recognizer("SpacyRecognizer")
