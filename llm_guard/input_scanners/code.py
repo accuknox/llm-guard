@@ -92,10 +92,11 @@ class Code(Scanner):
 
     def __init__(
         self,
-        languages: list[str],
+        languages: list[str] | None = None,
         *,
         model: Model | None = None,
         is_blocked: bool = False,
+        ban_all_code: bool = False,
         threshold: float = 0.83,
         use_onnx: bool = False,
     ) -> None:
@@ -104,8 +105,14 @@ class Code(Scanner):
 
         Parameters:
             model: The model to use for language detection.
-            languages: The list of programming languages to allow or deny.
-            is_blocked: Whether the languages are blocked or allowed. Default is True.
+            languages: The list of programming languages to allow or deny. Ignored
+                when ban_all_code is enabled; optional in that case.
+            is_blocked: Whether the languages are blocked or allowed. Default is
+                False (allow-list: only the given languages pass, every other code
+                language is blocked).
+            ban_all_code: BanCode mode. When True, any prompt containing code in
+                any language the model recognises is flagged, and `languages` /
+                `is_blocked` are ignored. Default is False.
             threshold: The threshold for the risk score. Default is 0.83, the
                 default encoder's recommended global operating point.
             use_onnx: Whether to use ONNX for inference. Default is False.
@@ -114,8 +121,9 @@ class Code(Scanner):
             LLMGuardValidationError: If the languages are not a subset of the
                 loaded model's own labels.
         """
-        self._languages = languages
+        self._languages = languages or []
         self._is_blocked = is_blocked
+        self._ban_all_code = ban_all_code
         self._threshold = threshold
 
         if model is None:
@@ -137,7 +145,7 @@ class Code(Scanner):
         # so any model (the default encoder or a custom one) with a different label
         # set works without editing a hardcoded list.
         supported = set(self._pipeline.model.config.id2label.values())
-        if not set(languages).issubset(supported):
+        if not set(self._languages).issubset(supported):
             raise LLMGuardValidationError(f"Languages must be a subset of {sorted(supported)}")
 
         self._fenced_code_regex = re.compile(r"```(?:[a-zA-Z0-9]*\n)?(.*?)```", re.DOTALL)
@@ -167,6 +175,7 @@ class Code(Scanner):
         prompt: str,
         languages: list[str] | None = None,
         is_blocked: bool | None = None,
+        ban_all_code: bool | None = None,
         threshold: float | None = None,
     ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
@@ -175,6 +184,8 @@ class Code(Scanner):
         languages_config = languages if languages is not None else self._languages
         if is_blocked is None:
             is_blocked = self._is_blocked
+        if ban_all_code is None:
+            ban_all_code = self._ban_all_code
         if threshold is None:
             threshold = self._threshold
 
@@ -199,12 +210,15 @@ class Code(Scanner):
         # The default encoder is multi-label, so a single chunk can report several
         # languages, each with its own score. Look at every language the model
         # detects above the threshold and keep the strongest violation:
+        #   - BanCode mode (ban_all_code=True): any detected language is a
+        #     violation, so a prompt containing code in any recognised language is
+        #     flagged and `languages` / `is_blocked` are ignored.
         #   - allow mode (is_blocked=False): only the configured languages are
         #     allowed through; any other detected code language is a violation.
         #   - block mode (is_blocked=True): the configured languages are the ones
         #     that are blocked; every other language is allowed.
         # Text with no code (no language above the threshold) has no violation and
-        # passes in either mode.
+        # passes in every mode.
         results = self._pipeline(chunks)
         allowed = set(languages_config)
         violating_language: str | None = None
@@ -225,20 +239,23 @@ class Code(Scanner):
                     continue
 
                 label = language["label"]
-                is_violation = (label in allowed) if is_blocked else (label not in allowed)
+                if ban_all_code:
+                    is_violation = True
+                else:
+                    is_violation = (label in allowed) if is_blocked else (label not in allowed)
                 if is_violation and score > violating_score:
                     violating_language = label
                     violating_score = score
 
         if violating_language is not None:
             LOGGER.warning(
-                "Language is not allowed",
+                "Code is not allowed" if ban_all_code else "Language is not allowed",
                 language_name=violating_language,
                 score=violating_score,
             )
             return prompt, False, calculate_risk_score(violating_score, threshold)
 
-        LOGGER.debug("No disallowed languages detected")
+        LOGGER.debug("No code detected" if ban_all_code else "No disallowed languages detected")
         return prompt, True, -1.0
 
     def analyze_spans(self, prompt: str) -> list[dict]:
@@ -249,9 +266,10 @@ class Code(Scanner):
         default encoder is multi-label (independent sigmoid per language), so the
         detector attributes the highest-scoring candidate language per chunk.
 
-        The candidate languages depend on the policy: in block mode they are the
-        configured (banned) languages; in allow mode they are every other language
-        the model knows (whose presence would be a violation).
+        The candidate languages depend on the policy: in BanCode mode they are
+        every language the model knows; in block mode they are the configured
+        (banned) languages; in allow mode they are every other language the model
+        knows (whose presence would be a violation).
 
         Returns a list of {"text", "score", "start", "end"} dicts.
         """
@@ -261,7 +279,9 @@ class Code(Scanner):
         if self._span_detector is None:
             model = self._pipeline.model
             label2id = model.config.label2id
-            if self._is_blocked:
+            if self._ban_all_code:
+                targets = list(range(model.config.num_labels))
+            elif self._is_blocked:
                 targets = [label2id[lang] for lang in self._languages if lang in label2id]
             else:
                 allowed = set(self._languages)

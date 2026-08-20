@@ -16,10 +16,11 @@ class Code(Scanner):
 
     def __init__(
         self,
-        languages: list[str],
+        languages: list[str] | None = None,
         *,
         model: Model | None = None,
         is_blocked: bool = False,
+        ban_all_code: bool = False,
         threshold: float = 0.83,
         use_onnx: bool = False,
     ) -> None:
@@ -28,9 +29,13 @@ class Code(Scanner):
 
         Parameters:
             model: The model to use for language detection.
-            languages: The list of programming languages to allow or deny.
+            languages: The list of programming languages to allow or deny. Ignored
+                when ban_all_code is enabled; optional in that case.
             is_blocked: Whether the languages are blocked or allowed. Default is False
                 (allow-list: only the given languages pass, every other code language is blocked).
+            ban_all_code: BanCode mode. When True, any output containing code in any
+                language the model recognises is flagged, and `languages` /
+                `is_blocked` are ignored. Default is False.
             threshold: The threshold for the model output to be considered valid.
                 Default is 0.83, the default encoder's recommended global operating point.
             use_onnx: Whether to use ONNX for inference. Default is False.
@@ -43,6 +48,7 @@ class Code(Scanner):
             languages,
             model=model,
             is_blocked=is_blocked,
+            ban_all_code=ban_all_code,
             threshold=threshold,
             use_onnx=use_onnx,
         )
@@ -53,11 +59,13 @@ class Code(Scanner):
         output: str,
         languages: list[str] | None = None,
         is_blocked: bool | None = None,
+        ban_all_code: bool | None = None,
         threshold: float | None = None,
     ) -> tuple[str, bool, float]:
         return self._scanner.scan(
             output,
             languages=languages,
             is_blocked=is_blocked,
+            ban_all_code=ban_all_code,
             threshold=threshold,
         )
