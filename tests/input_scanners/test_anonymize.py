@@ -233,6 +233,69 @@ Create a summarized version of his resume.""",
             True,
             -1.0,
         ),  # Exposed name
+        (
+            {"entity_types": ["IN_AADHAAR"]},
+            "My aadhaar number is 2341-2341-2346.",
+            "My aadhaar number is [REDACTED_IN_AADHAAR_1].",
+            False,
+            1.0,
+        ),  # Aadhaar number written with dashes
+        (
+            {"entity_types": ["IN_AADHAAR"]},
+            "My aadhaar number is 2341 2341 2346.",
+            "My aadhaar number is [REDACTED_IN_AADHAAR_1].",
+            False,
+            1.0,
+        ),  # Aadhaar number written with spaces
+        (
+            {"entity_types": ["IN_AADHAAR"]},
+            "My aadhaar number is 234123412346.",
+            "My aadhaar number is [REDACTED_IN_AADHAAR_1].",
+            False,
+            1.0,
+        ),  # Aadhaar number without separators
+        (
+            {"entity_types": ["IN_AADHAAR"]},
+            "Order id 1234-5678-9012 is pending.",
+            "Order id 1234-5678-9012 is pending.",
+            True,
+            -1.0,
+        ),  # 12 digits that fail Aadhaar validation
+        (
+            {"entity_types": ["CREDIT_CARD"]},
+            "My credit card number is 4111.1111.1111.1111.",
+            "My credit card number is [REDACTED_CREDIT_CARD_1].",
+            False,
+            1.0,
+        ),  # Credit card number written with dots
+        (
+            {"entity_types": ["CREDIT_CARD"]},
+            "The build finished in 4111.1111 seconds.",
+            "The build finished in 4111.1111 seconds.",
+            True,
+            -1.0,
+        ),  # Dotted number that is not a card
+        (
+            {"entity_types": ["US_PASSPORT"]},
+            "My passport number is 912803456.",
+            "My passport number is [REDACTED_US_PASSPORT_1].",
+            False,
+            0.2,
+        ),  # Passport number only reaches the threshold thanks to context words
+        (
+            {"entity_types": ["US_PASSPORT"]},
+            "Invoice total 123456789 was paid.",
+            "Invoice total 123456789 was paid.",
+            True,
+            -1.0,
+        ),  # Same shape without passport context
+        (
+            {"entity_types": ["IN_PASSPORT"]},
+            "My Indian passport number is A12-34567.",
+            "My Indian passport number is [REDACTED_IN_PASSPORT_1].",
+            False,
+            0.2,
+        ),  # Indian passport number written with a dash
         ({}, "", "", True, -1.0),  # Empty prompt
     ],
 )

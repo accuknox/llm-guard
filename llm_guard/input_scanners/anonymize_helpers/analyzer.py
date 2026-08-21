@@ -145,6 +145,10 @@ def get_analyzer(
 
     registry = RecognizerRegistry(supported_languages=supported_languages)
     registry.load_predefined_recognizers(nlp_engine=nlp_engine)
+    # Replaced in _add_recognizers by versions that accept more separators.
+    registry.remove_recognizer("InAadhaarRecognizer")
+    registry.remove_recognizer("InPassportRecognizer")
+    registry.remove_recognizer("CreditCardRecognizer")
     registry = _add_recognizers(registry, regex_groups, custom_names, supported_languages)
     registry.add_recognizer(recognizer)
     registry.remove_recognizer("SpacyRecognizer")
@@ -155,6 +159,11 @@ def get_analyzer(
         supported_languages=supported_languages,
         context_aware_enhancer=LemmaContextAwareEnhancer(
             context_similarity_factor=0.35,
-            min_score_with_context_similarity=0.4,
+            # Weak patterns (passport numbers in particular) top out at 0.45 with the
+            # default floor of 0.4, which never clears Anonymize's 0.5 threshold. Lift
+            # them clear of it instead of landing exactly on it, which would report a
+            # risk score of 0. Only matches backed by context words are lifted, so bare
+            # digit runs stay low.
+            min_score_with_context_similarity=0.6,
         ),
     )
