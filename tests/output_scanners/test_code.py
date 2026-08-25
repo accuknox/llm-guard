@@ -18,7 +18,7 @@ console.log(sayHello());
 ```""",
             False,
             1.0,
-        ),  # Not allowed language
+        ),  # Blocked language
         (
             """Sure, below you can find the code:
 
@@ -33,8 +33,8 @@ func main() {
 }
 ```""",
             True,
-            1.0,
-        ),  # Allowed language
+            -1.0,
+        ),  # Language that is not blocked
         (
             """You can achieve this using Python's set data structure. Let's say you have a list of strings named `list_of_strings` and another list named `available_strings`. You can check if all elements of `list_of_strings` exist in `available_strings` by converting both lists to sets and then using the set's `issubset` method.
 
@@ -61,7 +61,7 @@ This approach takes advantage of the set's properties to efficiently check for m
     ],
 )
 def test_scan(output, expected_valid, expected_score):
-    scanner = Code(languages=["Go"], is_blocked=False)
+    scanner = Code(languages=["JavaScript", "Python"])
     sanitized_output, valid, score = scanner.scan("", output)
     assert sanitized_output == output
     assert valid == expected_valid
