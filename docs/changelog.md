@@ -14,10 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -
 
 ### Changed
--
+- **[Breaking]** `Code` scanners now treat `languages` purely as a block-list: the listed languages are blocked and every other language passes. Selecting all supported languages (or passing none) blocks all code, matching the `BanCode` scanner.
 
 ### Removed
--
+- **[Breaking]** `is_blocked` and `ban_all_code` parameters of the `Code` scanners.
 
 ## [0.3.16] - 2025-05-19
 

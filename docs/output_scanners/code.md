@@ -1,6 +1,6 @@
 # Code Scanner
 
-This scanner can be particularly useful in applications that need to accept only code snippets in specific languages.
+This scanner can be particularly useful in applications that need to reject code snippets in specific languages, or any code at all.
 
 ## Attack scenario
 
@@ -10,50 +10,52 @@ Controlling and inspecting the code in the model's output can be paramount in en
 
 ## How it works
 
-Utilizing [philomath-1209/programming-language-identification](https://huggingface.co/philomath-1209/programming-language-identification)
-model, the scanner can identify code snippets within prompts across various programming languages.
-Developers can configure the scanner to either allow or ban specific languages, thus retaining full control over which
-types of code can appear in user queries.
+Utilizing a multi-label code-language classifier, the scanner can identify code snippets across various programming
+languages.
 
-The scanner is currently limited to extracting and detecting code snippets from Markdown in the following languages:
+The `languages` given to the scanner are the ones that are **blocked**: code detected in any of them makes the
+output invalid, while code in any other language passes through. Selecting **all** supported languages - which is
+also what passing no languages at all means - blocks any code whatsoever, making the scanner behave like the
+[BanCode](./ban_code.md) scanner.
 
-- ARM Assembly
-- AppleScript
+The scanner extracts code snippets from Markdown and detects the following languages:
+
+- AWK
+- Bash
+- Batch
 - C
 - C#
 - C++
-- COBOL
-- Erlang
-- Fortran
+- Dockerfile
 - Go
 - Java
 - JavaScript
 - Kotlin
 - Lua
-- Mathematica/Wolfram Language
-- PHP
-- Pascal
+- Makefile
 - Perl
 - PowerShell
 - Python
 - R
 - Ruby
 - Rust
+- SQL
 - Scala
 - Swift
-- Visual Basic .NET
+- Terraform
 - jq
 
 !!! note
 
-    In case, you want to ban code snippets, you can use the [BanCode](./ban_code.md) scanner.
+    To ban all code snippets, either select every supported language or use the dedicated
+    [BanCode](./ban_code.md) scanner.
 
 ## Usage
 
 ```python
 from llm_guard.output_scanners import Code
 
-scanner = Code(languages=["python"], is_blocked=True)
+scanner = Code(languages=["Python"])  # Python is blocked, other languages pass
 sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
 ```
 

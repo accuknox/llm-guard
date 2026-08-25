@@ -49,7 +49,7 @@ def build_input_scanner(scanner_name: str, use_onnx: bool) -> InputScanner:
         return input_scanners.BanTopics(topics=["violence", "attack", "war"], use_onnx=use_onnx)
 
     if scanner_name == "Code":
-        return input_scanners.Code(languages=["Java"], is_blocked=True, use_onnx=use_onnx)
+        return input_scanners.Code(languages=["Java"], use_onnx=use_onnx)
 
     if scanner_name == "Gibberish":
         return input_scanners.Gibberish(use_onnx=use_onnx)
@@ -105,7 +105,7 @@ def build_output_scanner(scanner_name: str, use_onnx: bool) -> OutputScanner:
         return output_scanners.Bias(use_onnx=use_onnx)
 
     if scanner_name == "Code":
-        return output_scanners.Code(languages=["Java"], is_blocked=True, use_onnx=use_onnx)
+        return output_scanners.Code(languages=["Java"], use_onnx=use_onnx)
 
     if scanner_name == "Deanonymize":
         return output_scanners.Deanonymize(vault)

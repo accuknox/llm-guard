@@ -52,8 +52,9 @@ input_scanners:
       model_max_length: 256
 #  - type: Code
 #    params:
+#      # Languages listed here are blocked; any other language passes.
+#      # List every supported language to block all code (like BanCode).
 #      languages: ["Python"]
-#      is_blocked: true
   - type: Gibberish
     params:
       threshold: 0.97
@@ -122,8 +123,9 @@ output_scanners:
       model_max_length: 256
 #  - type: Code
 #    params:
+#      # Languages listed here are blocked; any other language passes.
+#      # List every supported language to block all code (like BanCode).
 #      languages: ["Python"]
-#      is_blocked: true
   - type: Deanonymize
     params:
       matching_strategy: "exact"
