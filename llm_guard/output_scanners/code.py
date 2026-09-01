@@ -15,13 +15,15 @@ class Code(Scanner):
     detected in any of them is a violation, and code in every other language passes
     through. Selecting every language the model supports (which is also what
     passing no languages means) blocks any code at all, i.e. the scanner behaves
-    like the BanCode scanner.
+    like the BanCode scanner. Setting allowSelectAll=True forces that same
+    block-everything behaviour regardless of the languages given.
     """
 
     def __init__(
         self,
         languages: list[str] | None = None,
         *,
+        allowSelectAll: bool = False,
         model: Model | None = None,
         threshold: float = 0.83,
         use_onnx: bool = False,
@@ -35,6 +37,10 @@ class Code(Scanner):
                 them is flagged; code in any other language is allowed. Passing
                 every supported language - or None/an empty list, which means the
                 same thing - blocks all code (BanCode behaviour).
+            allowSelectAll: When True, every language the model supports is
+                blocked, whatever `languages` says, so any code at all is flagged
+                (BanCode behaviour). When False (the default) the normal flow
+                applies and only `languages` is blocked.
             threshold: The threshold for the model output to be considered valid.
                 Default is 0.83, the default encoder's recommended global operating point.
             use_onnx: Whether to use ONNX for inference. Default is False.
@@ -46,6 +52,7 @@ class Code(Scanner):
 
         self._scanner = InputCode(
             languages,
+            allowSelectAll=allowSelectAll,
             model=model,
             threshold=threshold,
             use_onnx=use_onnx,
@@ -57,9 +64,11 @@ class Code(Scanner):
         output: str,
         languages: list[str] | None = None,
         threshold: float | None = None,
+        allowSelectAll: bool | None = None,
     ) -> tuple[str, bool, float]:
         return self._scanner.scan(
             output,
             languages=languages,
             threshold=threshold,
+            allowSelectAll=allowSelectAll,
         )

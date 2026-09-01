@@ -91,13 +91,15 @@ class Code(Scanner):
     detected in any of them is a violation, and code in every other language passes
     through. Selecting every language the model supports (which is also what
     passing no languages means) blocks any code at all, i.e. the scanner behaves
-    like the BanCode scanner.
+    like the BanCode scanner. Setting allowSelectAll=True forces that same
+    block-everything behaviour regardless of the languages given.
     """
 
     def __init__(
         self,
         languages: list[str] | None = None,
         *,
+        allowSelectAll: bool = False,
         model: Model | None = None,
         threshold: float = 0.83,
         use_onnx: bool = False,
@@ -111,6 +113,10 @@ class Code(Scanner):
                 them is flagged; code in any other language is allowed. Passing
                 every supported language - or None/an empty list, which means the
                 same thing - blocks all code (BanCode behaviour).
+            allowSelectAll: When True, every language the model supports is
+                blocked, whatever `languages` says, so any code at all is flagged
+                (BanCode behaviour). When False (the default) the normal flow
+                applies and only `languages` is blocked.
             threshold: The threshold for the risk score. Default is 0.83, the
                 default encoder's recommended global operating point.
             use_onnx: Whether to use ONNX for inference. Default is False.
@@ -120,6 +126,7 @@ class Code(Scanner):
                 loaded model's own labels.
         """
         self._threshold = threshold
+        self._allow_select_all = allowSelectAll
 
         if model is None:
             model = DEFAULT_MODEL
@@ -179,11 +186,21 @@ class Code(Scanner):
         prompt: str,
         languages: list[str] | None = None,
         threshold: float | None = None,
+        allowSelectAll: bool | None = None,
     ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        blocked = set(languages) if languages else self._languages
+        if allowSelectAll is None:
+            allowSelectAll = self._allow_select_all
+
+        # "Select all" overrides the block-list entirely: every supported
+        # language is blocked, so any code is a violation.
+        if allowSelectAll:
+            blocked = set(self._supported_languages)
+        else:
+            blocked = set(languages) if languages else self._languages
+
         if threshold is None:
             threshold = self._threshold
 
@@ -256,7 +273,8 @@ class Code(Scanner):
         detector attributes the highest-scoring candidate language per chunk.
 
         The candidate languages are the configured (blocked) ones, which is every
-        language the model knows when the scanner blocks all code.
+        language the model knows when the scanner blocks all code or when
+        allowSelectAll is set.
 
         Returns a list of {"text", "score", "start", "end"} dicts.
         """
@@ -266,7 +284,10 @@ class Code(Scanner):
         if self._span_detector is None:
             model = self._pipeline.model
             label2id = model.config.label2id
-            targets = [label2id[lang] for lang in self._languages if lang in label2id]
+            candidates = (
+                self._supported_languages if self._allow_select_all else self._languages
+            )
+            targets = [label2id[lang] for lang in candidates if lang in label2id]
             if not targets:
                 targets = list(range(model.config.num_labels))
 
