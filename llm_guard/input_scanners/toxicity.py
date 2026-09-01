@@ -16,31 +16,29 @@ from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
+# Accuknox multilingual toxicity classifier (en / ko / vi), fine-tuned from
+# FacebookAI/xlm-roberta-base. Private repo, so loading requires an HF token (set
+# HF_TOKEN in the environment; token=True picks it up). Unlike the previous
+# unitary/unbiased-toxic-roberta model this is single-label softmax over two
+# classes (0=TOXIC, 1=NON_TOXIC) rather than multi-label sigmoid over seven
+# toxicity facets, so scan() scores P(TOXIC) instead of taking a max over facet
+# scores. threshold.json ships an operating point of 0.976 (target FPR 0.01).
+# No ONNX export published, so use_onnx would fall back to an on-the-fly export.
 DEFAULT_MODEL = Model(
-    path="unitary/unbiased-toxic-roberta",
-    revision="36295dd80b422dc49f40052021430dae76241adc",
-    onnx_path="ProtectAI/unbiased-toxic-roberta-onnx",
-    onnx_revision="34480fa958f6657ad835c345808475755b6974a7",
+    path="Accuknoxtechnologies/toxicity-xlmr-multilingual",
+    revision="fedbeef2aba9f3b8753bdf574c32fef1408e5df1",
     pipeline_kwargs={
         "padding": True,
-        "top_k": None,
-        "function_to_apply": "sigmoid",
         "return_token_type_ids": False,
         "max_length": 512,
         "truncation": True,
         "batch_size": 4,
     },
+    tokenizer_kwargs={"token": True},
+    kwargs={"token": True},
 )
 
-_toxic_labels = [
-    "toxicity",
-    "severe_toxicity",
-    "obscene",
-    "threat",
-    "insult",
-    "identity_attack",
-    "sexual_explicit",
-]
+_toxic_labels = ["TOXIC"]
 
 
 class MatchType(Enum):
@@ -74,8 +72,11 @@ class Toxicity(Scanner):
         Initializes Toxicity with a threshold for toxicity.
 
         Parameters:
-           model (Model, optional): Path to the model. Default is None.
-           threshold (float): Threshold for toxicity. Default is 0.5.
+           model (Model, optional): Path to the model. Default is None, which uses
+               the Accuknox multilingual (XLM-R) toxicity classifier.
+           threshold (float): Threshold for toxicity. Default is 0.5. The default
+               model's threshold.json publishes 0.976 for a target FPR of 0.01, for
+               callers who want that budget.
            match_type (MatchType): Whether to match the full text or individual sentences. Default is MatchType.FULL.
            use_onnx (bool): Whether to use ONNX for inference. Default is False.
         """
@@ -127,21 +128,24 @@ class Toxicity(Scanner):
             return prompt, True, -1.0
 
         highest_toxicity_score = 0.0
-        toxicity_above_threshold = []
         results_all = self._pipeline(inputs)
-        for results_chunk in results_all:
-            for result in results_chunk:
-                if result["label"] not in _toxic_labels:
-                    continue
+        for result in results_all:
+            # Single-label softmax: the pipeline returns the winning class only,
+            # so P(TOXIC) is the complement when NON_TOXIC wins. Left unrounded so
+            # a strict threshold (the model publishes 0.976) is not rounded away.
+            toxicity_score = (
+                result["score"] if result["label"] in _toxic_labels else 1 - result["score"]
+            )
 
-                if result["score"] > threshold:
-                    toxicity_above_threshold.append(result)
+            if toxicity_score > highest_toxicity_score:
+                highest_toxicity_score = toxicity_score
 
-                if result["score"] > highest_toxicity_score:
-                    highest_toxicity_score = result["score"]
-
-        if len(toxicity_above_threshold) > 0:
-            LOGGER.warning("Detected toxicity in the text", results=toxicity_above_threshold)
+        if highest_toxicity_score > threshold:
+            LOGGER.warning(
+                "Detected toxicity in the text",
+                score=highest_toxicity_score,
+                threshold=threshold,
+            )
 
             return (
                 prompt,
@@ -158,12 +162,12 @@ class Toxicity(Scanner):
         )
 
     def analyze_spans(self, prompt: str) -> list[dict]:
-        """Return the character spans of the prompt that drive the toxic labels.
+        """Return the character spans of the prompt that drive the TOXIC class.
 
         Meant to be called only after scan() has flagged the prompt (e.g. to
-        explain a violation), since it runs an Integrated Gradients pass. This is
-        a multi-label (sigmoid) model, so attribution targets the highest-scoring
-        toxic label in each chunk.
+        explain a violation), since it runs an Integrated Gradients pass. The
+        model is single-label softmax, so the detector attributes the TOXIC
+        class directly.
 
         Returns a list of {"text", "score", "start", "end"} dicts.
         """
@@ -172,13 +176,11 @@ class Toxicity(Scanner):
 
         if self._span_detector is None:
             model = self._pipeline.model
-            label2id = model.config.label2id
-            target_labels = [label2id[label] for label in _toxic_labels if label in label2id]
+            target_class = model.config.label2id.get("TOXIC", 0)
             self._span_detector = SpanDetector(
                 model=model,
                 tokenizer=self._pipeline.tokenizer,
-                target_class=target_labels,
-                multi_label=True,
+                target_class=target_class,
                 classify_threshold=self._threshold,
             )
 
