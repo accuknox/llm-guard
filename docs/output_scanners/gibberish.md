@@ -14,7 +14,7 @@ This scanner aims to mitigate these issues by scrutinizing LLM outputs for gibbe
 
 ## How it works
 
-Utilizing the model [madhurjindal/autonlp-Gibberish-Detector-492513457](https://huggingface.co/madhurjindal/autonlp-Gibberish-Detector-492513457), this scanner is capable of distinguishing between meaningful English text and gibberish.
+Utilizing the model [Accuknoxtechnologies/gibberish-xlmr-multilingual](https://huggingface.co/Accuknoxtechnologies/gibberish-xlmr-multilingual), an XLM-RoBERTa classifier covering English, Korean and Vietnamese, this scanner is capable of distinguishing between meaningful text and gibberish.
 
 ## Usage
 
