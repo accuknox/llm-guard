@@ -47,8 +47,8 @@ The scanner extracts code snippets from Markdown and detects the following langu
 
 !!! note
 
-    To ban all code snippets, either select every supported language or use the dedicated
-    [BanCode](./ban_code.md) scanner.
+    To ban all code snippets, set `allowSelectAll=True`, select every supported language, or use
+    the dedicated [BanCode](./ban_code.md) scanner.
 
 ## Usage
 
@@ -56,6 +56,10 @@ The scanner extracts code snippets from Markdown and detects the following langu
 from llm_guard.output_scanners import Code
 
 scanner = Code(languages=["Python"])  # Python is blocked, other languages pass
+sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
+
+# allowSelectAll blocks every supported language, whatever `languages` says
+scanner = Code(allowSelectAll=True)  # any code at all is flagged
 sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
 ```
 
