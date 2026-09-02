@@ -32,12 +32,15 @@ class Sensitive(Scanner):
 
     This class uses the Presidio Analyzer Engine and predefined internally patterns (patterns.py) to analyze the output for specified entity types.
     If no entity types are specified, it defaults to checking for all entity types.
+    Setting allowSelectAll=True checks for every entity type the analyzer supports,
+    regardless of the entity types given.
     """
 
     def __init__(
         self,
         *,
         entity_types: list[str] | None = None,
+        allowSelectAll: bool = False,
         regex_patterns: list[DefaultRegexPatterns | RegexPatternsReuse] | None = None,
         redact: bool = False,
         recognizer_conf: NERConfig | None = None,
@@ -51,6 +54,10 @@ class Sensitive(Scanner):
         Parameters:
            entity_types (Optional[Sequence[str]]): The entity types to look for in the output. Defaults to all
                                                entity types.
+           allowSelectAll (bool): When True, every entity type the analyzer can recognize is looked
+                                               for, whatever `entity_types` says. When False (the
+                                               default) the normal flow applies and only
+                                               `entity_types` is looked for.
            regex_patterns (Optional[List[Dict]]): List of regex patterns to use for detection. Default is None.
            redact (bool): Redact found sensitive entities. Default to False.
            recognizer_conf (Optional[Dict]): Configuration to recognize PII data. Default is Ai4Privacy DeBERTa.
@@ -71,6 +78,7 @@ class Sensitive(Scanner):
         entity_types.append("CUSTOM")
 
         self._entity_types = entity_types
+        self._allow_select_all = allowSelectAll
         self._redact = redact
         self._threshold = threshold
 
@@ -95,6 +103,7 @@ class Sensitive(Scanner):
         output: str,
         redact: bool | None = None,
         threshold: float | None = None,
+        allowSelectAll: bool | None = None,
     ) -> tuple[str, bool, float]:
         if output.strip() == "":
             return prompt, True, -1.0
@@ -103,11 +112,17 @@ class Sensitive(Scanner):
             redact = self._redact
         if threshold is None:
             threshold = self._threshold
+        if allowSelectAll is None:
+            allowSelectAll = self._allow_select_all
+
+        # "Select all" means every entity the analyzer can recognize, so drop the
+        # filter entirely: Presidio treats entities=None as "all supported".
+        entity_types = None if allowSelectAll else self._entity_types
 
         analyzer_results = self._analyzer.analyze(
             text=Anonymize.remove_single_quotes(output),
             language="en",
-            entities=self._entity_types,
+            entities=entity_types,
             score_threshold=threshold,
         )
 
