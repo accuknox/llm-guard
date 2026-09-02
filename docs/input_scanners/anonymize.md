@@ -96,6 +96,7 @@ sanitized_prompt, is_valid, risk_score = scanner.scan(prompt)
 - `preamble`: Directs the LLM to bypass specific content.
 - `hidden_names`: Transforms specified names to formats like `[REDACTED_CUSTOM_1]`.
 - `entity_types`: Opt for particular information types to redact.
+- `allowSelectAll`: When `True`, every entity type the analyzer can recognize is detected, whatever `entity_types` says.
 - `regex_pattern_groups_path`: Input a path for personalized patterns.
 - `use_faker`: Substitutes eligible entities with fabricated data.
 - `recognizer_conf`: Configures recognizer for the PII data detection. There are many PII detection models available for various use-cases.

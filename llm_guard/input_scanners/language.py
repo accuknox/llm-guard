@@ -46,12 +46,16 @@ class Language(Scanner):
     prompt and verifying its validity against a list of predefined languages.
 
     Note: when no languages are detected above the threshold, the prompt is considered valid.
+
+    Setting allowSelectAll=True allows every language the model knows, so no detected
+    language is ever a violation.
     """
 
     def __init__(
         self,
         valid_languages: list[str],
         *,
+        allowSelectAll: bool = False,
         model: Model | None = None,
         threshold: float = 0.6,
         match_type: MatchType | str = MatchType.FULL,
@@ -63,6 +67,10 @@ class Language(Scanner):
         Parameters:
             model (Model, optional): A Model object containing the path to the model and its ONNX equivalent.
             valid_languages (Sequence[str]): A list of valid language codes in ISO 639-1.
+            allowSelectAll (bool): When True, every language the model supports is treated as
+                valid, whatever `valid_languages` says, so nothing is flagged. When False (the
+                default) the normal flow applies and only languages outside `valid_languages`
+                are flagged.
             threshold (float): Minimum confidence score.
             match_type (MatchType): Whether to match the full text or individual sentences. Default is MatchType.FULL.
             use_onnx (bool): Whether to use ONNX for inference. Default is False.
@@ -72,6 +80,7 @@ class Language(Scanner):
 
         self._threshold = threshold
         self._valid_languages = valid_languages
+        self._allow_select_all = allowSelectAll
         self._match_type = match_type
 
         if model is None:
@@ -89,17 +98,28 @@ class Language(Scanner):
             **model.pipeline_kwargs,
         )
 
+        # The languages the loaded model can actually detect; used when
+        # allowSelectAll marks every language as valid.
+        self._supported_languages = list(self._pipeline.model.config.id2label.values())
+
     def scan(
         self,
         prompt: str,
         valid_languages: list[str] | None = None,
         threshold: float | None = None,
         match_type: MatchType | None = None,
+        allowSelectAll: bool | None = None,
     ) -> tuple[str, bool, float]:
         if prompt.strip() == "":
             return prompt, True, -1.0
 
-        if valid_languages is None:
+        if allowSelectAll is None:
+            allowSelectAll = self._allow_select_all
+
+        if allowSelectAll:
+            # "Select all" allows every language the model knows, so nothing is flagged.
+            valid_languages = self._supported_languages
+        elif valid_languages is None:
             valid_languages = self._valid_languages
         if threshold is None:
             threshold = self._threshold

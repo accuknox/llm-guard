@@ -37,6 +37,11 @@ from llm_guard.output_scanners import Sensitive
 
 scanner = Sensitive(entity_types=["PERSON", "EMAIL"], redact=True)
 sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
+
+# allowSelectAll looks for every entity type the analyzer supports, whatever
+# `entity_types` says
+scanner = Sensitive(allowSelectAll=True, redact=True)
+sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
 ```
 
 To enhance flexibility, users can introduce their patterns through the `regex_pattern_groups_path`.

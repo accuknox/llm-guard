@@ -456,3 +456,32 @@ def test_placeholder_consistency():
     assert mary_placeholder in result4
     assert email_placeholder in result1
     assert email_placeholder in result3
+
+
+def test_scan_allow_select_all_detects_every_entity_type():
+    """allowSelectAll detects every entity the analyzer knows, whatever entity_types says."""
+    prompt = "The IP address is 192.168.1.100."
+
+    # IP_ADDRESS is outside the configured entity types, so it is left alone.
+    scanner = Anonymize(Vault(), entity_types=["EMAIL_ADDRESS"])
+    sanitized_prompt, valid, _ = scanner.scan(prompt)
+    assert sanitized_prompt == prompt
+    assert valid is True
+
+    scanner = Anonymize(Vault(), entity_types=["EMAIL_ADDRESS"], allowSelectAll=True)
+    sanitized_prompt, valid, _ = scanner.scan(prompt)
+    assert "192.168.1.100" not in sanitized_prompt
+    assert valid is False
+
+
+def test_scan_allow_select_all_per_call_override():
+    """allowSelectAll can be toggled per scan() call in both directions."""
+    prompt = "The IP address is 192.168.1.100."
+
+    scanner = Anonymize(Vault(), entity_types=["EMAIL_ADDRESS"])
+    assert scanner.scan(prompt)[1] is True
+    assert scanner.scan(prompt, allowSelectAll=True)[1] is False
+
+    scanner = Anonymize(Vault(), entity_types=["EMAIL_ADDRESS"], allowSelectAll=True)
+    assert scanner.scan(prompt)[1] is False
+    assert scanner.scan(prompt, allowSelectAll=False)[1] is True
