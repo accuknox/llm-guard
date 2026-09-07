@@ -33,6 +33,11 @@ from llm_guard.input_scanners.language import MatchType
 
 scanner = Language(valid_languages=["en", ...], match_type=MatchType.FULL)  # Add other valid language codes (ISO 639-1) as needed
 sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
+
+# allowSelectAll treats every language the model supports as valid, whatever
+# `valid_languages` says, so nothing is flagged
+scanner = Language(valid_languages=["en"], allowSelectAll=True)
+sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
 ```
 
 ## Optimization Strategies

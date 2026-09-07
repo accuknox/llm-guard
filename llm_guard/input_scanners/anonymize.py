@@ -58,6 +58,7 @@ class Anonymize(Scanner):
         hidden_names: list[str] | None = None,
         allowed_names: list[str] | None = None,
         entity_types: list[str] | None = None,
+        allowSelectAll: bool = False,
         preamble: str = "",
         regex_patterns: list[DefaultRegexPatterns | RegexPatternsReuse] | None = None,
         use_faker: bool = False,
@@ -74,6 +75,9 @@ class Anonymize(Scanner):
             hidden_names: List of names to be anonymized e.g. [REDACTED_CUSTOM_1].
             allowed_names: List of names allowed in the text without anonymizing.
             entity_types: List of entity types to be detected. If not provided, defaults to all.
+            allowSelectAll: When True, every entity type the analyzer can recognize is detected,
+                whatever `entity_types` says. When False (the default) the normal flow applies and
+                only `entity_types` is detected.
             preamble: Text to prepend to sanitized prompt. If not provided, defaults to an empty string.
             regex_patterns: List of regex patterns to be used for detection. If not provided, defaults to predefined list.
             use_faker: Whether to use faker instead of placeholders in applicable cases. If not provided, defaults to False, replaces with placeholders [REDACTED_PERSON_1].
@@ -104,6 +108,7 @@ class Anonymize(Scanner):
 
         self._vault = vault
         self._entity_types = entity_types
+        self._allow_select_all = allowSelectAll
         self._hidden_names = hidden_names
         self._allowed_names = allowed_names
         self._preamble = preamble
@@ -359,6 +364,7 @@ class Anonymize(Scanner):
         hidden_names: list[str] | None = None,
         allowed_names: list[str] | None = None,
         entity_types: list[str] | None = None,
+        allowSelectAll: bool | None = None,
         preamble: str | None = None,
         regex_patterns: list[DefaultRegexPatterns | RegexPatternsReuse] | None = None,
         use_faker: bool | None = None,
@@ -371,13 +377,20 @@ class Anonymize(Scanner):
         # Use provided arguments or fall back to the instance defaults.
         vault = vault or self._vault
         allowed_names = allowed_names if allowed_names is not None else self._allowed_names
-        entity_types = entity_types if entity_types is not None else self._entity_types
         preamble = preamble if preamble is not None else self._preamble
         use_faker = use_faker if use_faker is not None else self._use_faker
         threshold = threshold if threshold is not None else self._threshold
+        if allowSelectAll is None:
+            allowSelectAll = self._allow_select_all
 
-        if "CUSTOM" not in entity_types:
-            entity_types = entity_types + ["CUSTOM"]
+        if allowSelectAll:
+            # "Select all" means every entity the analyzer can recognize, so drop the
+            # filter entirely: Presidio treats entities=None as "all supported".
+            entity_types = None
+        else:
+            entity_types = entity_types if entity_types is not None else self._entity_types
+            if "CUSTOM" not in entity_types:
+                entity_types = entity_types + ["CUSTOM"]
 
         # Only analyzer-affecting overrides force a rebuild; otherwise reuse the
         # analyzer built once in __init__.
