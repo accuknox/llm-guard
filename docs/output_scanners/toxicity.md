@@ -11,7 +11,7 @@ output, potential toxic content can be flagged and handled appropriately.
 
 ## How it works
 
-The scanner uses the [unitary/unbiased-toxic-roberta](https://huggingface.co/unitary/unbiased-toxic-roberta) model from Hugging Face for binary classification of the text as toxic or non-toxic.
+The scanner uses the [Accuknoxtechnologies/toxicity-xlmr-multilingual](https://huggingface.co/Accuknoxtechnologies/toxicity-xlmr-multilingual) model from Hugging Face for binary classification of the text as toxic or non-toxic. It is an XLM-RoBERTa model covering English, Korean and Vietnamese, and emits a single `TOXIC` / `NON_TOXIC` decision rather than per-facet scores. The scanner default threshold stays at `0.7`; the model publishes an operating point of `0.976` for a target FPR of 0.01 if you want that budget.
 
 - **Toxicity Detection**: If the text is classified as toxic, the toxicity score corresponds to the model's confidence in this classification.
 - **Non-Toxicity Confidence**: For non-toxic text, the score is the inverse of the model's confidence, i.e., `1 − confidence score`.

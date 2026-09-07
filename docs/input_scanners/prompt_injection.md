@@ -40,11 +40,13 @@ Prompt injection attacks are particularly potent in the following scenarios:
 
 Choose models you would like to validate against:
 
-[ProtectAI/deberta-v3-base-prompt-injection-v2](https://huggingface.co/ProtectAI/deberta-v3-base-prompt-injection-v2).
-This model is a fine-tuned version of the `microsoft/deberta-v3-base` on multiple dataset of prompt injections and
-normal prompts to classify text.
-It aims to identify prompt injections, classifying inputs into two categories: `0` for no injection and `1` for
-injection detected. We are still testing it.
+[Accuknoxtechnologies/prompt-injection-multilingual](https://huggingface.co/Accuknoxtechnologies/prompt-injection-multilingual)
+is the default. It is a fine-tuned version of `FacebookAI/xlm-roberta-base`, trained on prompt injections and normal
+prompts in English, Korean and Vietnamese.
+It classifies inputs into two categories: `0` for no injection and `1` for injection detected.
+The scanner scores `P(INJECTION)` against a threshold rather than taking `argmax`. The default threshold is `0.5`; the
+model card publishes `0.999` as the point meeting an FPR budget of 0.01, but that trades away enough recall to miss
+plainly-worded injections, so raise the threshold only if you need that FPR budget.
 
 Usage:
 

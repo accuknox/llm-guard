@@ -16,13 +16,16 @@ from .span_attribution import SpanDetector
 
 LOGGER = get_logger()
 
-# Accuknox fine-tuned RoBERTa gibberish classifier. Private repo, so loading
-# requires an HF token (set HF_TOKEN in the environment; token=True picks it up).
-# Binary labels: 0=GIBBERISH, 1=NORMAL. No ONNX export published, so use_onnx
-# would fall back to an on-the-fly export.
+# Accuknox multilingual gibberish classifier (en / ko / vi), fine-tuned from
+# FacebookAI/xlm-roberta-base. Private repo, so loading requires an HF token (set
+# HF_TOKEN in the environment; token=True picks it up). Single-label softmax with
+# the same binary labels as the previous DeBERTa model — 0=GIBBERISH, 1=NORMAL —
+# so scan() is unchanged. The repo ships no threshold.json, so the scanner keeps
+# its 0.97 default. No ONNX export published, so use_onnx would fall back to an
+# on-the-fly export.
 DEFAULT_MODEL = Model(
-    path="Accuknoxtechnologies/gibberish-deberta",
-    revision="7fd98078cc3b730acdf9c66a6b0c9ddcfb8b59b0",
+    path="Accuknoxtechnologies/gibberish-xlmr-multilingual",
+    revision="389339a474762b4ef1e8e31bdfb44f4b6db3a009",
     pipeline_kwargs={
         "return_token_type_ids": False,
         "max_length": 512,
