@@ -9,6 +9,16 @@ fake = Faker()
 fake.seed_instance(100)
 
 
+def _fake_emirates_id() -> str:
+    # Imported here to keep presidio out of the faker import path.
+    from .predefined_recognizers.ae_emirates_id_recognizer import AeEmiratesIdRecognizer
+
+    year = str(fake.random_int(min=1950, max=2020))
+    serial = str(fake.random_number(digits=7, fix_len=True))
+    check_digit = AeEmiratesIdRecognizer.luhn_check_digit("784" + year + serial)
+    return f"784-{year}-{serial}-{check_digit}"
+
+
 _entity_faker_map: dict[str, Callable[[], Any]] = {
     # Global entities
     "CREDIT_CARD": fake.credit_card_number,
@@ -63,6 +73,8 @@ _entity_faker_map: dict[str, Callable[[], Any]] = {
     "AU_MEDICARE": cast(
         Callable[[], str], lambda _: str(fake.random_number(digits=10, fix_len=True))
     ),
+    # UAE-specific entities
+    "AE_EMIRATES_ID": _fake_emirates_id,
 }
 
 
