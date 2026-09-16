@@ -13,11 +13,17 @@ def _get_predefined_recognizers(language: str) -> list[Callable[..., EntityRecog
             EmailRecognizer,
             IpRecognizer,
         ]
+    from .ae_emirates_id_recognizer import AeEmiratesIdRecognizer
     from .credit_card_recognizer import CreditCardRecognizer
     from .in_aadhaar_recognizer import InAadhaarRecognizer
     from .in_passport_recognizer import InPassportRecognizer
 
-    return [CreditCardRecognizer, InAadhaarRecognizer, InPassportRecognizer]
+    return [
+        CreditCardRecognizer,
+        InAadhaarRecognizer,
+        InPassportRecognizer,
+        AeEmiratesIdRecognizer,
+    ]
 
 
 __all__ = [

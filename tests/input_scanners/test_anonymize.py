@@ -296,6 +296,41 @@ Create a summarized version of his resume.""",
             False,
             0.2,
         ),  # Indian passport number written with a dash
+        (
+            {"entity_types": ["AE_EMIRATES_ID"]},
+            "My Emirates ID is 784-1990-1234567-6.",
+            "My Emirates ID is [REDACTED_AE_EMIRATES_ID_1].",
+            False,
+            1.0,
+        ),  # Emirates ID written with dashes
+        (
+            {"entity_types": ["AE_EMIRATES_ID"]},
+            "My Emirates ID is 784 1985 1234567 3.",
+            "My Emirates ID is [REDACTED_AE_EMIRATES_ID_1].",
+            False,
+            1.0,
+        ),  # Emirates ID written with spaces
+        (
+            {"entity_types": ["AE_EMIRATES_ID"]},
+            "My Emirates ID is 784199012345676.",
+            "My Emirates ID is [REDACTED_AE_EMIRATES_ID_1].",
+            False,
+            1.0,
+        ),  # Emirates ID without separators
+        (
+            {"entity_types": ["AE_EMIRATES_ID"]},
+            "My Emirates ID is 784-1990-1234567-1.",
+            "My Emirates ID is 784-1990-1234567-1.",
+            True,
+            -1.0,
+        ),  # Emirates ID with a wrong check digit
+        (
+            {"entity_types": ["AE_EMIRATES_ID"]},
+            "My Emirates ID is 784-1990 1234567-6.",
+            "My Emirates ID is 784-1990 1234567-6.",
+            True,
+            -1.0,
+        ),  # Emirates ID with mixed separators
         ({}, "", "", True, -1.0),  # Empty prompt
     ],
 )
