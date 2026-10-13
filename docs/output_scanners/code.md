@@ -13,10 +13,9 @@ Controlling and inspecting the code in the model's output can be paramount in en
 Utilizing a multi-label code-language classifier, the scanner can identify code snippets across various programming
 languages.
 
-The `languages` given to the scanner are the ones that are **blocked**: code detected in any of them makes the
-output invalid, while code in any other language passes through. Selecting **all** supported languages - which is
-also what passing no languages at all means - blocks any code whatsoever, making the scanner behave like the
-[BanCode](./ban_code.md) scanner.
+The `languages` given to the scanner are the ones that are **allowed**: code detected in any of them passes
+through, while code in any other supported language makes the output invalid. Selecting **no** languages blocks
+any code whatsoever, making the scanner behave like the [BanCode](./ban_code.md) scanner.
 
 The scanner extracts code snippets from Markdown and detects the following languages:
 
@@ -47,19 +46,18 @@ The scanner extracts code snippets from Markdown and detects the following langu
 
 !!! note
 
-    To ban all code snippets, set `allowSelectAll=True`, select every supported language, or use
-    the dedicated [BanCode](./ban_code.md) scanner.
+    To ban all code snippets, select no languages, or use the dedicated [BanCode](./ban_code.md) scanner.
+    Setting `allowSelectAll=True` (or selecting every supported language) allows all code.
 
 ## Usage
 
 ```python
 from llm_guard.output_scanners import Code
 
-scanner = Code(languages=["Python"])  # Python is blocked, other languages pass
+scanner = Code(languages=["Python"])  # Python is allowed, other languages are blocked
 sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
 
-# allowSelectAll blocks every supported language, whatever `languages` says
-scanner = Code(allowSelectAll=True)  # any code at all is flagged
+scanner = Code()  # no languages allowed, any code at all is flagged
 sanitized_output, is_valid, risk_score = scanner.scan(prompt, model_output)
 ```
 

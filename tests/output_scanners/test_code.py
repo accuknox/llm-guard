@@ -16,9 +16,9 @@ function sayHello() {
 }
 console.log(sayHello());
 ```""",
-            False,
-            1.0,
-        ),  # Blocked language
+            True,
+            -1.0,
+        ),  # Allowed language
         (
             """Sure, below you can find the code:
 
@@ -32,9 +32,9 @@ func main() {
     fmt.Println(text)
 }
 ```""",
-            True,
-            -1.0,
-        ),  # Language that is not blocked
+            False,
+            1.0,
+        ),  # Language that is not allowed
         (
             """You can achieve this using Python's set data structure. Let's say you have a list of strings named `list_of_strings` and another list named `available_strings`. You can check if all elements of `list_of_strings` exist in `available_strings` by converting both lists to sets and then using the set's `issubset` method.
 
@@ -55,8 +55,8 @@ print(all_exist)  # This will print True if all elements exist, False otherwise
 ```
 
 This approach takes advantage of the set's properties to efficiently check for membership.""",
-            False,
-            1.0,
+            True,
+            -1.0,
         ),  # Long output in Python
     ],
 )
@@ -73,8 +73,7 @@ def test_scan(output, expected_valid, expected_score):
     [
         ("", True, -1.0),  # Empty output
         ("Just a simple output", True, -1.0),  # No code at all
-        (
-            """Sure, below you can find the code:
+        ("""Sure, below you can find the code:
 
 ```go
 package main
@@ -85,15 +84,12 @@ func main() {
     text := "hello world"
     fmt.Println(text)
 }
-```""",
-            False,
-            1.0,
-        ),  # Go is flagged even though only JavaScript is configured
+```""", False, 1.0),
     ],
 )
-def test_scan_allow_select_all_bans_all_code(output, expected_valid, expected_score):
-    """allowSelectAll blocks every language, whatever `languages` says."""
-    scanner = Code(languages=["JavaScript"], allowSelectAll=True)
+def test_scan_no_languages_bans_all_code(output, expected_valid, expected_score):
+    """Selecting no languages makes Code behave like the BanCode scanner."""
+    scanner = Code()
     sanitized_output, valid, score = scanner.scan("", output)
     assert sanitized_output == output
     assert valid == expected_valid
@@ -109,9 +105,9 @@ func main() {}
 ```"""
 
     scanner = Code(languages=["JavaScript"])
-    assert scanner.scan("", output)[1] is True
-    assert scanner.scan("", output, allowSelectAll=True)[1] is False
+    assert scanner.scan("", output)[1] is False
+    assert scanner.scan("", output, allowSelectAll=True)[1] is True
 
     scanner = Code(languages=["JavaScript"], allowSelectAll=True)
-    assert scanner.scan("", output)[1] is False
-    assert scanner.scan("", output, allowSelectAll=False)[1] is True
+    assert scanner.scan("", output)[1] is True
+    assert scanner.scan("", output, allowSelectAll=False)[1] is False
