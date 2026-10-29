@@ -19,6 +19,18 @@ def _fake_emirates_id() -> str:
     return f"784-{year}-{serial}-{check_digit}"
 
 
+def _fake_indian_driving_license() -> str:
+    return fake.bothify(text="??" + "#" * 13).upper()
+
+
+def _fake_indian_ifsc() -> str:
+    return fake.bothify(text="????0??????").upper()
+
+
+def _fake_indian_tan() -> str:
+    return fake.bothify(text="????#####?").upper()
+
+
 _entity_faker_map: dict[str, Callable[[], Any]] = {
     # Global entities
     "CREDIT_CARD": fake.credit_card_number,
@@ -75,6 +87,14 @@ _entity_faker_map: dict[str, Callable[[], Any]] = {
     ),
     # UAE-specific entities
     "AE_EMIRATES_ID": _fake_emirates_id,
+    # India-specific entities
+    "IN_DRIVING_LICENSE": _fake_indian_driving_license,
+    "IN_BANK_ACCOUNT": cast(
+        Callable[[], str], lambda: str(fake.random_number(digits=12, fix_len=True))
+    ),
+    "IN_IFSC": _fake_indian_ifsc,
+    "IN_UPI": cast(Callable[[], str], lambda: fake.bothify(text="user####@okaxis")),
+    "IN_TAN": _fake_indian_tan,
 }
 
 

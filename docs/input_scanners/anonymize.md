@@ -45,6 +45,29 @@ Some model providers may train their models on your requests, which can be a pri
   accounts across national borders to facilitate the communication and processing of cross border transactions with a
   reduced risk of transcription errors.
     - `DE89370400440532013000`
+- **Indian identifiers**: Indian-specific recognizers are available by passing their entity types explicitly to
+  `Anonymize`. Bank account numbers are detected heuristically and require account-related context; driving licence
+  formats vary, and a matching format does not verify that an identifier was issued.
+  Indian mobile numbers use the `PHONE_NUMBER` entity. The Indian Aadhaar and passport recognizers are also opt-in.
+    - `IN_AADHAAR`
+    - `IN_DRIVING_LICENSE`
+    - `IN_BANK_ACCOUNT`
+    - `IN_IFSC`
+    - `IN_PASSPORT`
+    - `IN_UPI`
+    - `IN_TAN`
+    - `PHONE_NUMBER`
+
+  Indian mobile formats include `+919876543210`, `919876543210`, `09876543210`, and `9876543210`.
+
+For example:
+
+```python
+scanner = Anonymize(
+    vault,
+    entity_types=["PHONE_NUMBER", "IN_DRIVING_LICENSE", "IN_BANK_ACCOUNT", "IN_IFSC", "IN_UPI", "IN_TAN"],
+)
+```
 
 ## Features
 
