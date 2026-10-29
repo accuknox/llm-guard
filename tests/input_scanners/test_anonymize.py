@@ -331,6 +331,118 @@ Create a summarized version of his resume.""",
             True,
             -1.0,
         ),  # Emirates ID with mixed separators
+        (
+            {"entity_types": ["PHONE_NUMBER"]},
+            "My Indian mobile number is +919876543210.",
+            "My Indian mobile number is [REDACTED_PHONE_NUMBER_1].",
+            False,
+            0.5,
+        ),  # Indian mobile number with international prefix
+        (
+            {"entity_types": ["PHONE_NUMBER"]},
+            "My Indian mobile number is 919876543210.",
+            "My Indian mobile number is [REDACTED_PHONE_NUMBER_1].",
+            False,
+            0.5,
+        ),  # Indian mobile number with bare country code
+        (
+            {"entity_types": ["PHONE_NUMBER"]},
+            "My Indian mobile number is 09876543210.",
+            "My Indian mobile number is [REDACTED_PHONE_NUMBER_1].",
+            False,
+            0.5,
+        ),  # Indian mobile number with national prefix
+        (
+            {"entity_types": ["PHONE_NUMBER"]},
+            "My Indian mobile number is 9876543210.",
+            "My Indian mobile number is [REDACTED_PHONE_NUMBER_1].",
+            False,
+            0.5,
+        ),  # Indian mobile number without prefix
+        (
+            {"entity_types": ["PHONE_NUMBER"]},
+            "Mobile number: 0000000000.",
+            "Mobile number: 0000000000.",
+            True,
+            -1.0,
+        ),  # Invalid Indian mobile number
+        (
+            {"entity_types": ["IN_DRIVING_LICENSE"]},
+            "Driving licence no: MH-12-2014-0001234.",
+            "Driving licence no: [REDACTED_IN_DRIVING_LICENSE_1].",
+            False,
+            0.2,
+        ),  # Indian driving licence with dashes
+        (
+            {"entity_types": ["IN_DRIVING_LICENSE"]},
+            "Driving license: KA 01 2019 12345.",
+            "Driving license: [REDACTED_IN_DRIVING_LICENSE_1].",
+            False,
+            0.2,
+        ),  # Indian driving licence with spaces and shorter serial
+        (
+            {"entity_types": ["IN_DRIVING_LICENSE"]},
+            "Reference: MH-12-2014-0001234.",
+            "Reference: MH-12-2014-0001234.",
+            True,
+            -1.0,
+        ),  # Driving licence-shaped value without context
+        (
+            {"entity_types": ["IN_BANK_ACCOUNT"]},
+            "Account No: 123456789012.",
+            "Account No: [REDACTED_IN_BANK_ACCOUNT_1].",
+            False,
+            0.2,
+        ),  # Bank account with context
+        (
+            {"entity_types": ["IN_BANK_ACCOUNT"]},
+            "Reference number: 123456789012.",
+            "Reference number: 123456789012.",
+            True,
+            -1.0,
+        ),  # Bank account-shaped value without context
+        (
+            {"entity_types": ["IN_IFSC"]},
+            "IFSC: SBIN0001234.",
+            "IFSC: [REDACTED_IN_IFSC_1].",
+            False,
+            0.5,
+        ),  # Valid IFSC structure
+        (
+            {"entity_types": ["IN_IFSC"]},
+            "IFSC: SBIN1001234.",
+            "IFSC: SBIN1001234.",
+            True,
+            -1.0,
+        ),  # IFSC with wrong reserved character
+        (
+            {"entity_types": ["IN_UPI"]},
+            "UPI ID: rahul.sharma@okaxis.",
+            "UPI ID: [REDACTED_IN_UPI_1].",
+            False,
+            0.2,
+        ),  # UPI ID with context
+        (
+            {"entity_types": ["IN_UPI"]},
+            "Email address: rahul.sharma@okaxis.",
+            "Email address: rahul.sharma@okaxis.",
+            True,
+            -1.0,
+        ),  # Email-shaped value without UPI context
+        (
+            {"entity_types": ["IN_TAN"]},
+            "TAN: ABCD12345E.",
+            "TAN: [REDACTED_IN_TAN_1].",
+            False,
+            0.5,
+        ),  # Valid TAN structure
+        (
+            {"entity_types": ["IN_TAN"]},
+            "TAN: ABCD1234E.",
+            "TAN: ABCD1234E.",
+            True,
+            -1.0,
+        ),  # TAN with wrong length
         ({}, "", "", True, -1.0),  # Empty prompt
     ],
 )
