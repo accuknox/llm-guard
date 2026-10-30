@@ -10,6 +10,7 @@ from presidio_analyzer import (
 )
 from presidio_analyzer.context_aware_enhancers import LemmaContextAwareEnhancer
 from presidio_analyzer.nlp_engine import NlpEngine, NlpEngineProvider
+from presidio_analyzer.predefined_recognizers import SpacyRecognizer
 from spacy.cli import download  # type: ignore
 
 from .ner_mapping import NERConfig
@@ -147,11 +148,18 @@ def get_analyzer(
     registry.load_predefined_recognizers(nlp_engine=nlp_engine)
     # Replaced in _add_recognizers by versions that accept more separators.
     registry.remove_recognizer("InAadhaarRecognizer")
+    registry.remove_recognizer("InPanRecognizer")
     registry.remove_recognizer("InPassportRecognizer")
     registry.remove_recognizer("CreditCardRecognizer")
     registry = _add_recognizers(registry, regex_groups, custom_names, supported_languages)
     registry.add_recognizer(recognizer)
     registry.remove_recognizer("SpacyRecognizer")
+    # The transformers model handles PERSON, LOCATION, etc. Keep spaCy only for NRP
+    # (nationality, religious or political group), which none of the NER models emit.
+    for language in supported_languages:
+        registry.add_recognizer(
+            SpacyRecognizer(supported_language=language, supported_entities=["NRP"])
+        )
 
     return AnalyzerEngine(
         nlp_engine=nlp_engine,
