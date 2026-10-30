@@ -338,6 +338,27 @@ Create a summarized version of his resume.""",
             False,
             0.85,
         ),  # Religious group
+        (
+            {"entity_types": ["NRP"]},
+            "i am hindu and he is a sikh.",
+            "i am [REDACTED_NRP_1] and he is a [REDACTED_NRP_2].",
+            False,
+            0.85,
+        ),  # Lowercase religious groups missed by spaCy
+        (
+            {"entity_types": ["NRP"]},
+            "He voted for the Republican Party.",
+            "He voted for the [REDACTED_NRP_1].",
+            False,
+            0.85,
+        ),  # Political party
+        (
+            {"entity_types": ["NRP"]},
+            "Give me a conservative estimate.",
+            "Give me a conservative estimate.",
+            True,
+            -1.0,
+        ),  # Everyday adjective is not a political group
         ({}, "", "", True, -1.0),  # Empty prompt
     ],
 )
