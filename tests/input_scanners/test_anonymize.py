@@ -331,6 +331,13 @@ Create a summarized version of his resume.""",
             True,
             -1.0,
         ),  # Emirates ID with mixed separators
+        (
+            {"entity_types": ["NRP"]},
+            "She is a devout Muslim.",
+            "She is a devout [REDACTED_NRP_1].",
+            False,
+            0.85,
+        ),  # Religious group
         ({}, "", "", True, -1.0),  # Empty prompt
     ],
 )
