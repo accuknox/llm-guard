@@ -16,12 +16,14 @@ def _get_predefined_recognizers(language: str) -> list[Callable[..., EntityRecog
     from .ae_emirates_id_recognizer import AeEmiratesIdRecognizer
     from .credit_card_recognizer import CreditCardRecognizer
     from .in_aadhaar_recognizer import InAadhaarRecognizer
+    from .in_pan_recognizer import InPanRecognizer
     from .in_passport_recognizer import InPassportRecognizer
     from .nrp_recognizer import NrpRecognizer
 
     return [
         CreditCardRecognizer,
         InAadhaarRecognizer,
+        InPanRecognizer,
         InPassportRecognizer,
         AeEmiratesIdRecognizer,
         NrpRecognizer,

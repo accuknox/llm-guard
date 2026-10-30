@@ -148,6 +148,7 @@ def get_analyzer(
     registry.load_predefined_recognizers(nlp_engine=nlp_engine)
     # Replaced in _add_recognizers by versions that accept more separators.
     registry.remove_recognizer("InAadhaarRecognizer")
+    registry.remove_recognizer("InPanRecognizer")
     registry.remove_recognizer("InPassportRecognizer")
     registry.remove_recognizer("CreditCardRecognizer")
     registry = _add_recognizers(registry, regex_groups, custom_names, supported_languages)
