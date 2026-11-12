@@ -500,6 +500,62 @@ Create a summarized version of his resume.""",
             0.5,
         ),  # Valid TAN structure
         (
+            {"entity_types": ["PESEL_NUMBER"]},
+            "PESEL number: 44051401458.",
+            "PESEL number: [REDACTED_PESEL_NUMBER_1].",
+            False,
+            0.2,
+        ),  # Valid PESEL number with context
+        (
+            {"entity_types": ["PESEL_NUMBER"]},
+            "My PESEL is 92082612336.",
+            "My PESEL is [REDACTED_PESEL_NUMBER_1].",
+            False,
+            0.2,
+        ),  # Another valid PESEL number
+        (
+            {"entity_types": ["PESEL_NUMBER"]},
+            "92082612336",
+            "[REDACTED_PESEL_NUMBER_1]",
+            False,
+            0.2,
+        ),  # Valid PESEL without context
+        (
+            {"entity_types": ["PESEL_NUMBER"]},
+            "The customer record contains 12345, PESEL 02070803628, and total 42.",
+            "The customer record contains 12345, PESEL [REDACTED_PESEL_NUMBER_1], and total 42.",
+            False,
+            0.2,
+        ),  # PESEL embedded with other numeric values
+        (
+            {"entity_types": ["PESEL_NUMBER"]},
+            "Reference number: 44051401459.",
+            "Reference number: 44051401459.",
+            True,
+            -1.0,
+        ),  # Invalid PESEL checksum
+        (
+            {"entity_types": ["PESEL_NUMBER"]},
+            "PESEL: 99133212341.",
+            "PESEL: 99133212341.",
+            True,
+            -1.0,
+        ),  # Invalid encoded month despite a valid checksum
+        (
+            {"entity_types": ["PESEL_NUMBER"]},
+            "PESEL: 9208261233.",
+            "PESEL: 9208261233.",
+            True,
+            -1.0,
+        ),  # Wrong length
+        (
+            {"entity_types": ["PESEL_NUMBER"]},
+            "PESEL: 9208261233A.",
+            "PESEL: 9208261233A.",
+            True,
+            -1.0,
+        ),  # Non-numeric value
+        (
             {"entity_types": ["IN_TAN"]},
             "TAN: ABCD1234E.",
             "TAN: ABCD1234E.",

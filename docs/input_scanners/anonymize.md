@@ -60,6 +60,12 @@ Some model providers may train their models on your requests, which can be a pri
 
   Indian mobile formats include `+919876543210`, `919876543210`, `09876543210`, and `9876543210`.
 
+- **Polish PESEL number**: The Polish personal identification number recognizer is available by passing
+  `PESEL_NUMBER` explicitly to `Anonymize`. It validates the encoded birth date and PESEL checksum; PESEL-related
+  context can further improve recognition confidence, but is not required for a valid PESEL.
+    - `PESEL_NUMBER`
+    - `44051401458`
+
 For example:
 
 ```python
