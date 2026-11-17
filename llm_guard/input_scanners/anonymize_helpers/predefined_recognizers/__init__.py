@@ -21,6 +21,7 @@ def _get_predefined_recognizers(language: str) -> list[Callable[..., EntityRecog
     from .in_ifsc_recognizer import InIfscRecognizer
     from .in_pan_recognizer import InPanRecognizer
     from .in_passport_recognizer import InPassportRecognizer
+    from .pesel_number_recognizer import PeselNumberRecognizer
     from .in_tan_recognizer import InTanRecognizer
     from .in_upi_recognizer import InUpiRecognizer
     from .nrp_recognizer import NrpRecognizer
@@ -35,6 +36,7 @@ def _get_predefined_recognizers(language: str) -> list[Callable[..., EntityRecog
         InIfscRecognizer,
         InPanRecognizer,
         InPassportRecognizer,
+        PeselNumberRecognizer,
         InUpiRecognizer,
         InTanRecognizer,
         AeEmiratesIdRecognizer,
