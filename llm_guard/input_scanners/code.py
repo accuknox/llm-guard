@@ -37,7 +37,7 @@ PHILOMATH_MODEL = Model(
 # export is published, so use_onnx would fall back to an on-the-fly export.
 CODE_IDENTIFICATION_ENCODER_V1 = Model(
     path="Accuknoxtechnologies/Code-Identification-Encoder-v1",
-    revision="2104a96e1a5cfc1b98eb8fea759d8560e331b097",
+    revision="90cfc37b065ad20f84ad18772c6b15a8fe1f0ee7",
     pipeline_kwargs={
         "top_k": None,
         "function_to_apply": "sigmoid",
