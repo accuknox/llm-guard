@@ -9,15 +9,20 @@ class InUpiRecognizer(PatternRecognizer):
     PATTERNS = [
         Pattern(
             "Indian UPI ID (Weak)",
-            r"(?<![A-Za-z0-9._-])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?@[A-Za-z][A-Za-z0-9.-]*[A-Za-z0-9](?![A-Za-z0-9.-])",
+            r"(?<![A-Za-z0-9._-])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?@[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*(?![A-Za-z0-9-]|\.(?=[A-Za-z0-9.-]))",
             0.4,
         ),
     ]
 
     CONTEXT = [
-        "UPI",
-        "VPA",
-        "virtual payment address",
+        "upi",
+        "vpa",
+        "virtual",
+        "payment",
+        "transfer",
+        "send",
+        "amount",
+        "pay",
     ]
 
     def __init__(
