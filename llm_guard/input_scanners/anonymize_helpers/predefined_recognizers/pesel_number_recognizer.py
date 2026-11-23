@@ -26,7 +26,7 @@ class PeselNumberRecognizer(PatternRecognizer):
         patterns: list[Pattern] | None = None,
         context: list[str] | None = None,
         supported_language: str = "en",
-        supported_entity: str = "PESEL_NUMBER",
+        supported_entity: str = "PL_PESEL",
     ):
         super().__init__(
             supported_entity=supported_entity,
