@@ -152,6 +152,7 @@ def get_analyzer(
     registry.remove_recognizer("InPassportRecognizer")
     registry.remove_recognizer("CreditCardRecognizer")
     registry.remove_recognizer("PhoneRecognizer")
+    registry.remove_recognizer("PlPeselRecognizer")
     registry = _add_recognizers(registry, regex_groups, custom_names, supported_languages)
     registry.add_recognizer(recognizer)
     registry.remove_recognizer("SpacyRecognizer")
